@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导入书籍</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .nav { margin-bottom: 30px; }
+        .nav a { color: #3498db; text-decoration: none; font-size: 0.95em; }
+
+        /* Drop Zone */
+        #drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        #drop-zone:hover, #drop-zone.drag-over {
+            border-color: #3498db;
+            background: #f0f7ff;
+        }
+        #drop-zone .icon { font-size: 48px; color: #bbb; margin-bottom: 16px; }
+        #drop-zone .hint { color: #999; font-size: 0.95em; }
+        #drop-zone .hint em { color: #3498db; font-style: normal; cursor: pointer; }
+        #file-input { display: none; }
+
+        /* Results */
+        #results { margin-top: 24px; }
+        .result-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .result-icon { font-size: 24px; flex-shrink: 0; }
+        .result-info { flex: 1; min-width: 0; }
+        .result-title { font-weight: 600; color: #2c3e50; font-size: 1em; }
+        .result-meta { color: #999; font-size: 0.85em; margin-top: 4px; }
+        .result-error { color: #dc2626; font-size: 0.85em; margin-top: 4px; }
+        .result-link { color: #3498db; text-decoration: none; font-size: 0.85em; font-weight: 500; }
+        .result-link:hover { text-decoration: underline; }
+
+        /* Spinner */
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #ddd; border-top-color: #3498db; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav"><a href="/">&#8592; 返回书库</a></div>
+        <h1>导入书籍</h1>
+
+        <div id="drop-zone">
+            <div class="icon">&#128214;</div>
+            <div class="hint">将 EPUB 文件拖放到此处，或 <em id="browse-btn">点击选择文件</em></div>
+        </div>
+        <input type="file" id="file-input" accept=".epub" multiple>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+    (function() {
+        var dropZone = document.getElementById('drop-zone');
+        var fileInput = document.getElementById('file-input');
+        var results = document.getElementById('results');
+
+        document.getElementById('browse-btn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileInput.click();
+        });
+        dropZone.addEventListener('click', function() { fileInput.click(); });
+
+        // Drag events
+        dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('drag-over'); });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(fileInput.files);
+            fileInput.value = '';
+        });
+
+        function handleFiles(files) {
+            for (var i = 0; i < files.length; i++) {
+                uploadFile(files[i]);
+            }
+        }
+
+        function uploadFile(file) {
+            var card = document.createElement('div');
+            card.className = 'result-card';
+            card.innerHTML = '<div class="spinner"></div>'
+                + '<div class="result-info">'
+                + '<div class="result-title">' + escapeHtml(file.name) + '</div>'
+                + '<div class="result-meta">处理中...</div>'
+                + '</div>';
+            results.appendChild(card);
+
+            var formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/upload', { method: 'POST', body: formData })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        card.innerHTML = '<div class="result-icon">&#9989;</div>'
+                            + '<div class="result-info">'
+                            + '<div class="result-title">' + escapeHtml(data.title) + '</div>'
+                            + '<div class="result-meta">' + escapeHtml(data.author) + ' &middot; ' + data.chapters + ' 章节</div>'
+                            + '</div>'
+                            + '<a href="/" class="result-link">查看书库</a>';
+                    } else {
+                        card.innerHTML = '<div class="result-icon">&#10060;</div>'
+                            + '<div class="result-info">'
+                            + '<div class="result-title">' + escapeHtml(file.name) + '</div>'
+                            + '<div class="result-error">' + escapeHtml(data.error || '处理失败') + '</div>'
+                            + '</div>';
+                    }
+                })
+                .catch(function(err) {
+                    card.innerHTML = '<div class="result-icon">&#10060;</div>'
+                        + '<div class="result-info">'
+                        + '<div class="result-title">' + escapeHtml(file.name) + '</div>'
+                        + '<div class="result-error">网络错误</div>'
+                        + '</div>';
+                });
+        }
+
+        function escapeHtml(s) {
+            var d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+    })();
+    </script>
+</body>
+</html>

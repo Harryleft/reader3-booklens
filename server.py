@@ -1,14 +1,15 @@
 import os
 import pickle
+import tempfile
 from functools import lru_cache
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from reader3 import Book, BookMetadata, ChapterContent, TOCEntry
+from reader3 import Book, BookMetadata, ChapterContent, TOCEntry, process_epub, save_to_pickle
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -103,6 +104,42 @@ async def serve_image(book_id: str, image_name: str):
         raise HTTPException(status_code=404, detail="Image not found")
 
     return FileResponse(img_path)
+
+
+@app.get("/import", response_class=HTMLResponse)
+async def import_page(request: Request):
+    return templates.TemplateResponse("import.html", {"request": request})
+
+
+@app.post("/api/upload")
+async def upload_epub(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith(".epub"):
+        return JSONResponse({"success": False, "error": "仅支持 .epub 文件"}, status_code=400)
+
+    # Save to temp file
+    with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as tmp:
+        while chunk := await file.read(1024 * 1024):
+            tmp.write(chunk)
+        tmp_path = tmp.name
+
+    try:
+        base_name = os.path.splitext(os.path.basename(file.filename))[0]
+        out_dir = os.path.join(BOOKS_DIR, base_name + "_data")
+        book_obj = process_epub(tmp_path, out_dir)
+        save_to_pickle(book_obj, out_dir)
+        load_book_cached.cache_clear()
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    finally:
+        os.unlink(tmp_path)
+
+    return JSONResponse({
+        "success": True,
+        "title": book_obj.metadata.title,
+        "author": ", ".join(book_obj.metadata.authors),
+        "chapters": len(book_obj.spine),
+    })
+
 
 if __name__ == "__main__":
     import uvicorn
