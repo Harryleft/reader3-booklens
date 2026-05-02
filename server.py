@@ -14,7 +14,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 # Where are the book folders located?
-BOOKS_DIR = "."
+BOOKS_DIR = "book"
 
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:
