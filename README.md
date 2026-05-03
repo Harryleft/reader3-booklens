@@ -2,9 +2,7 @@
 
 ![homepage](/image/homepage.jpg)
 
-一个轻量级的自托管 EPUB 阅读器，让你逐章阅读 EPUB 电子书，并将章节内容一键复制给 LLM 进行共读分析。
-
-灵感来源于 [reader3](https://github.com/karpathy/reader3)，在此基础上增加了导入页面、提示词模板系统等功能。
+一个轻量级的自托管 EPUB 阅读器，让你逐章阅读 EPUB 电子书，并将章节内容一键复制给 LLM 进行共读理解。
 
 ## 功能
 
@@ -18,13 +16,7 @@
 
 本项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖。
 
-**1. 处理 EPUB 文件**
-
-```bash
-uv run reader3.py <你的文件.epub>
-```
-
-**2. 启动服务**
+**1. 启动服务**
 
 ```bash
 uv run server.py
@@ -36,15 +28,13 @@ uv run server.py
 start.bat
 ```
 
+**2. 导入书籍**
+
+![homepage](/image/import-book.jpg)
+
 **3. 打开浏览器**
 
-访问 [localhost:8123](http://localhost:8123/) 即可看到书库。你也可以直接在网页上通过 `/import` 页面拖拽上传 EPUB 文件。
-
-## 书籍管理
-
-- 处理后的书籍存放在 `book/` 目录下
-- 删除书籍：直接删除 `book/` 下对应的 `*_data` 文件夹即可
-- 添加书籍：命令行运行 `uv run reader3.py <file.epub>` 或通过网页导入
+访问 [localhost:8123](http://localhost:8123/) 即可看到书库。
 
 ## AI辅助功能
 
