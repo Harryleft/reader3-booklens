@@ -38,7 +38,7 @@ start.bat
 
 ## AI辅助功能
 
-![AI tools](/image/AI tools.jpg)
+![AI tools](/image/AI-tools.jpg)
 
 点击右下角图标，自动复制当前章节内容，并拼接为提示词。然后就可以发送给喜欢的AI模型，帮助理解本章内容。
 
