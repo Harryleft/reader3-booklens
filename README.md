@@ -1,26 +1,55 @@
-# reader 3
+# BookLens
 
-![reader3](reader3.png)
+一个轻量级的自托管 EPUB 阅读器，让你逐章阅读 EPUB 电子书，并将章节内容一键复制给 LLM 进行共读分析。
 
-A lightweight, self-hosted EPUB reader that lets you read through EPUB books one chapter at a time. This makes it very easy to copy paste the contents of a chapter to an LLM, to read along. Basically - get epub books (e.g. [Project Gutenberg](https://www.gutenberg.org/) has many), open them up in this reader, copy paste text around to your favorite LLM, and read together and along.
+灵感来源于 [reader3](https://github.com/karpathy/reader3)，在此基础上增加了导入页面、提示词模板系统等功能。
 
-This project was 90% vibe coded just to illustrate how one can very easily [read books together with LLMs](https://x.com/karpathy/status/1990577951671509438). I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+## 功能
 
-## Usage
+- 逐章阅读 EPUB 电子书，支持目录导航
+- 浮动按钮一键复制章节内容，自动用提示词模板包裹
+- 内置提示词模板 + 自定义模板管理
+- Web 端导入页面，支持拖拽上传 EPUB 文件，自动解析入库
+- 自动提取书籍元数据（标题、作者、目录结构、图片）
 
-The project uses [uv](https://docs.astral.sh/uv/). So for example, download [Dracula EPUB3](https://www.gutenberg.org/ebooks/345) to this directory as `dracula.epub`, then:
+## 快速开始
+
+本项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖。
+
+**1. 处理 EPUB 文件**
 
 ```bash
-uv run reader3.py dracula.epub
+uv run reader3.py <你的文件.epub>
 ```
 
-This creates the directory `dracula_data`, which registers the book to your local library. We can then run the server:
+**2. 启动服务**
 
 ```bash
 uv run server.py
 ```
 
-And visit [localhost:8123](http://localhost:8123/) to see your current Library. You can easily add more books, or delete them from your library by deleting the folder. It's not supposed to be complicated or complex.
+或使用一键启动脚本：
+
+```bash
+start.bat
+```
+
+**3. 打开浏览器**
+
+访问 [localhost:8123](http://localhost:8123/) 即可看到书库。你也可以直接在网页上通过 `/import` 页面拖拽上传 EPUB 文件。
+
+## 书籍管理
+
+- 处理后的书籍存放在 `book/` 目录下
+- 删除书籍：直接删除 `book/` 下对应的 `*_data` 文件夹即可
+- 添加书籍：命令行运行 `uv run reader3.py <file.epub>` 或通过网页导入
+
+## 技术栈
+
+- Python ≥ 3.10
+- FastAPI + Jinja2 + Uvicorn
+- ebooklib + BeautifulSoup4（EPUB 解析）
+- 前端纯原生 HTML/CSS/JS，无构建步骤
 
 ## License
 
