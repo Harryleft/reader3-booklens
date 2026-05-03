@@ -2,7 +2,7 @@
 
 ![homepage](/image/homepage.jpg)
 
-一个轻量级的自托管 EPUB 阅读器，让你逐章阅读 EPUB 电子书，并将章节内容一键复制给 LLM 进行共读理解。
+一个自托管 EPUB 阅读器，让你逐章阅读 EPUB 电子书，并将章节内容一键复制给 LLM 进行共读理解。
 
 ## 功能
 
