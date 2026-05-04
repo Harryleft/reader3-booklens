@@ -217,6 +217,10 @@
         }
         .r3-form-textarea { height: 240px; resize: vertical; font-family: 'Consolas', 'Menlo', monospace; font-size: 13px; line-height: 1.5; }
         .r3-form-hint { font-size: 12px; color: #999; margin-top: 4px; }
+        .r3-tabs { display: flex; gap: 0; }
+        .r3-tab { padding: 6px 16px; font-size: 14px; font-weight: 500; color: #868e96; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+        .r3-tab:hover { color: #495057; }
+        .r3-tab.active { color: #0087fc; border-bottom-color: #0087fc; }
 
     </style>
 </head>
@@ -332,15 +336,46 @@
 
     <!-- Template Panel Overlay -->
     <div id="r3-overlay">
-        <!-- List View -->
-        <div class="r3-panel" id="r3-panel-list">
+        <!-- Tab Headers -->
+        <div class="r3-panel" id="r3-panel-tabs">
             <div class="r3-panel-header">
-                <span>管理提示词模板</span>
+                <div class="r3-tabs">
+                    <button class="r3-tab active" data-tab="templates">模板管理</button>
+                    <button class="r3-tab" data-tab="batch-copy">连续复制</button>
+                </div>
                 <button class="r3-btn r3-btn-secondary r3-btn-sm" id="r3-close-panel">关闭</button>
             </div>
-            <div class="r3-panel-body" id="r3-tpl-list"></div>
-            <div class="r3-panel-footer">
-                <button class="r3-btn r3-btn-primary" id="r3-add-tpl">+ 新建模板</button>
+
+            <!-- Templates Tab -->
+            <div id="r3-tab-templates">
+                <div class="r3-panel-body" id="r3-tpl-list"></div>
+                <div class="r3-panel-footer">
+                    <button class="r3-btn r3-btn-primary" id="r3-add-tpl">+ 新建模板</button>
+                </div>
+            </div>
+
+            <!-- Batch Copy Tab -->
+            <div id="r3-tab-batch-copy" style="display:none;">
+                <div class="r3-panel-body">
+                    <div class="r3-form-group">
+                        <label class="r3-form-label">选择章节范围</label>
+                        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+                            <span style="font-size:13px;color:#868e96;">第</span>
+                            <input class="r3-form-input" type="number" id="r3-batch-start" min="1" style="width:70px;text-align:center;" value="{{ chapter_index + 1 }}">
+                            <span style="font-size:13px;color:#868e96;">节 到 第</span>
+                            <input class="r3-form-input" type="number" id="r3-batch-end" min="1" style="width:70px;text-align:center;" value="{{ chapter_index + 1 }}">
+                            <span style="font-size:13px;color:#868e96;">节（共 {{ book.spine|length }} 节）</span>
+                        </div>
+                    </div>
+                    <div class="r3-form-group">
+                        <label class="r3-form-label">章节预览</label>
+                        <div id="r3-batch-preview" style="font-size:13px;color:#868e96;max-height:120px;overflow-y:auto;background:#f8f9fa;border-radius:6px;padding:10px;"></div>
+                    </div>
+                    <div id="r3-batch-status" style="font-size:13px;color:#868e96;text-align:center;padding:4px 0;"></div>
+                </div>
+                <div class="r3-panel-footer">
+                    <button class="r3-btn r3-btn-primary" id="r3-batch-copy-btn">复制选中章节</button>
+                </div>
             </div>
         </div>
 
@@ -495,13 +530,22 @@
             // ── DOM ──
             var fab = document.getElementById('reader3-fab');
             var overlay = document.getElementById('r3-overlay');
-            var panelList = document.getElementById('r3-panel-list');
+            var panelTabs = document.getElementById('r3-panel-tabs');
             var panelEdit = document.getElementById('r3-panel-edit');
             var tplListEl = document.getElementById('r3-tpl-list');
             var editNameEl = document.getElementById('r3-edit-name');
             var editTplEl = document.getElementById('r3-edit-tpl');
             var editTitleEl = document.getElementById('r3-edit-title');
+            var batchStartEl = document.getElementById('r3-batch-start');
+            var batchEndEl = document.getElementById('r3-batch-end');
+            var batchPreviewEl = document.getElementById('r3-batch-preview');
+            var batchStatusEl = document.getElementById('r3-batch-status');
+            var batchCopyBtn = document.getElementById('r3-batch-copy-btn');
             if (!fab || !overlay) return;
+
+            var TOTAL_SECTIONS = {{ book.spine|length }};
+            var BOOK_ID = '{{ book_id }}';
+            var CURRENT_IDX = {{ chapter_index }};
 
             // ── Storage ──
             var STORAGE_KEY = 'reader3_templates';
@@ -590,8 +634,16 @@
             }
 
             function showView(view) {
-                panelList.style.display = view === 'list' ? '' : 'none';
+                panelTabs.style.display = (view === 'list' || view === 'batch') ? '' : 'none';
                 panelEdit.style.display = view === 'edit' ? '' : 'none';
+                document.getElementById('r3-tab-templates').style.display = view === 'list' ? '' : 'none';
+                document.getElementById('r3-tab-batch-copy').style.display = view === 'batch' ? '' : 'none';
+                if (view === 'list' || view === 'batch') {
+                    var tabs = panelTabs.querySelectorAll('.r3-tab');
+                    tabs.forEach(function(t) {
+                        t.classList.toggle('active', (view === 'list' && t.dataset.tab === 'templates') || (view === 'batch' && t.dataset.tab === 'batch-copy'));
+                    });
+                }
             }
 
             function renderTemplateList() {
@@ -663,6 +715,115 @@
             overlay.addEventListener('click', function(e) {
                 if (e.target === overlay) closePanel();
             });
+
+            // ── Tab switching ──
+            panelTabs.querySelectorAll('.r3-tab').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    if (tab.dataset.tab === 'templates') {
+                        renderTemplateList();
+                        showView('list');
+                    } else if (tab.dataset.tab === 'batch-copy') {
+                        showView('batch');
+                        updateBatchPreview();
+                    }
+                });
+            });
+
+            // ── Batch Copy ──
+            function clampRange() {
+                var s = parseInt(batchStartEl.value) || 1;
+                var e = parseInt(batchEndEl.value) || 1;
+                s = Math.max(1, Math.min(TOTAL_SECTIONS, s));
+                e = Math.max(1, Math.min(TOTAL_SECTIONS, e));
+                if (s > e) { var tmp = s; s = e; e = tmp; }
+                batchStartEl.value = s;
+                batchEndEl.value = e;
+                return { start: s, end: e };
+            }
+
+            function updateBatchPreview() {
+                var range = clampRange();
+                var count = range.end - range.start + 1;
+                batchStatusEl.textContent = '选中 ' + count + ' 节，准备就绪';
+                batchStatusEl.style.color = '#868e96';
+
+                var html = '';
+                for (var i = range.start; i <= range.end; i++) {
+                    var cls = i === CURRENT_IDX + 1 ? ' style="color:#d63384;font-weight:500;"' : '';
+                    html += '<div' + cls + '>第 ' + i + ' 节</div>';
+                }
+                batchPreviewEl.innerHTML = html;
+            }
+
+            batchStartEl.addEventListener('input', updateBatchPreview);
+            batchEndEl.addEventListener('input', updateBatchPreview);
+
+            batchCopyBtn.addEventListener('click', function() {
+                if (batchCopyBtn.disabled) return;
+                var range = clampRange();
+                var count = range.end - range.start + 1;
+
+                batchCopyBtn.disabled = true;
+                batchCopyBtn.textContent = '加载中...';
+                batchStatusEl.textContent = '正在获取第 ' + range.start + ' 节...';
+                batchStatusEl.style.color = '#0087fc';
+
+                var texts = [];
+                var idx = range.start;
+
+                function fetchNext() {
+                    if (idx > range.end) {
+                        finishBatch(texts, range);
+                        return;
+                    }
+                    batchStatusEl.textContent = '正在获取第 ' + idx + ' / ' + range.end + ' 节...';
+                    fetch('/read/' + BOOK_ID + '/' + (idx - 1))
+                        .then(function(r) { return r.text(); })
+                        .then(function(html) {
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(html, 'text/html');
+                            var el = doc.querySelector('.book-content');
+                            var text = el ? (el.innerText || el.textContent || '').trim() : '';
+                            if (text) texts.push(text);
+                            idx++;
+                            fetchNext();
+                        })
+                        .catch(function(err) {
+                            batchCopyBtn.disabled = false;
+                            batchCopyBtn.textContent = '复制选中章节';
+                            batchStatusEl.textContent = '获取失败：' + err.message;
+                            batchStatusEl.style.color = '#dc2626';
+                        });
+                }
+
+                fetchNext();
+            });
+
+            function finishBatch(texts, range) {
+                if (!texts.length) {
+                    batchCopyBtn.disabled = false;
+                    batchCopyBtn.textContent = '复制选中章节';
+                    batchStatusEl.textContent = '未获取到任何内容';
+                    batchStatusEl.style.color = '#dc2626';
+                    return;
+                }
+                var combined = texts.join('\n\n---\n\n');
+                var result = buildContent(combined);
+                copyToClipboard(result).then(function(ok) {
+                    batchCopyBtn.disabled = false;
+                    batchCopyBtn.textContent = '复制选中章节';
+                    if (ok) {
+                        var tmpl = getTemplate(selectedId);
+                        batchStatusEl.textContent = '已复制 ' + result.length + ' 字符（' + (range.end - range.start + 1) + ' 节，' + tmpl.name + '）';
+                        batchStatusEl.style.color = '#16a34a';
+                        showToast('已复制 ' + result.length + ' 字符');
+                    } else {
+                        batchStatusEl.textContent = '复制失败';
+                        batchStatusEl.style.color = '#dc2626';
+                        showToast('复制失败，请手动复制', 3000, true);
+                    }
+                });
+            }
 
             document.getElementById('r3-add-tpl').addEventListener('click', function() {
                 openEdit(null);
