@@ -41,6 +41,12 @@
         .nav-btn:hover { background: #3498db; color: white; }
         .nav-btn.disabled { opacity: 0.5; pointer-events: none; border-color: #ccc; color: #ccc; }
 
+        /* ── Reading Progress ── */
+        #reading-progress { position: fixed; top: 12px; right: 24px; z-index: 1000; display: flex; align-items: center; gap: 10px; font-family: -apple-system, sans-serif; }
+        #reading-progress .r3-pbar { width: 120px; height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden; }
+        #reading-progress .r3-pbar-fill { height: 100%; background: #0087fc; border-radius: 3px; transition: width 0.3s ease; }
+        #reading-progress .r3-ptext { font-size: 12px; color: #868e96; white-space: nowrap; }
+
         /* ── Floating Action Button ── */
         #reader3-fab {
             position: fixed;
@@ -215,6 +221,13 @@
     </style>
 </head>
 <body>
+
+    <!-- Reading Progress -->
+    <div id="reading-progress">
+        <span class="r3-ptext">{{ chapter_index + 1 }} / {{ book.spine|length }}</span>
+        <div class="r3-pbar"><div class="r3-pbar-fill" style="width: {{ ((chapter_index + 1) / book.spine|length * 100)|round|int }}%"></div></div>
+        <span class="r3-ptext">{{ ((chapter_index + 1) / book.spine|length * 100)|round|int }}%</span>
+    </div>
 
     <!-- Sidebar Toggle -->
     <button id="sidebar-toggle" title="切换目录">
