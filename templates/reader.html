@@ -369,6 +369,17 @@
             }
         }
 
+        // ── Keyboard Navigation ──
+        (function() {
+            var prevUrl = {% if prev_idx is not none %}"/read/{{ book_id }}/{{ prev_idx }}"{% else %}null{% endif %};
+            var nextUrl = {% if next_idx is not none %}"/read/{{ book_id }}/{{ next_idx }}"{% else %}null{% endif %};
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                if (e.key === 'ArrowLeft' && prevUrl) window.location.href = prevUrl;
+                else if (e.key === 'ArrowRight' && nextUrl) window.location.href = nextUrl;
+            });
+        })();
+
         // ── FAB + Template System ──
         (function() {
             // ── Built-in templates ──
