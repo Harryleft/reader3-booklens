@@ -749,8 +749,8 @@
                 </div>
                 <div class="r3-form-group">
                     <label class="r3-form-label">提示词模板</label>
-                    <textarea class="r3-form-textarea" id="r3-edit-tpl" placeholder="编写提示词，使用 {{content}} 作为章节内容占位符"></textarea>
-                    <div class="r3-form-hint">使用 {{content}} 作为章节内容占位符</div>
+                    <textarea class="r3-form-textarea" id="r3-edit-tpl" placeholder="编写提示词，使用 &#123;&#123;content&#125;&#125; 作为章节内容占位符"></textarea>
+                    <div class="r3-form-hint">使用 <code>&#123;&#123;content&#125;&#125;</code> 作为章节内容占位符</div>
                 </div>
             </div>
             <div class="r3-panel-footer">
@@ -901,6 +901,9 @@
 
         // ── FAB + Template System ──
         (function() {
+            var CONTENT_TOKEN = '{' + '{content}' + '}';
+            var CURRENT_CHAPTER_TEXT = {{ current_chapter.text|tojson }};
+
             // ── Built-in templates ──
             var BUILTIN_TEMPLATES = [
                 {
@@ -949,14 +952,14 @@
                         '---',
                         '## 章节内容',
                         '',
-                        '{{content}}'
+                        CONTENT_TOKEN
                     ].join('\n')
                 },
                 {
                     id: 'builtin-raw',
                     name: '原文直出',
                     builtin: true,
-                    template: '{{content}}'
+                    template: CONTENT_TOKEN
                 }
             ];
 
@@ -1033,7 +1036,7 @@
                     return;
                 }
 
-                var text = (contentEl.innerText || contentEl.textContent || '').trim();
+                var text = String(CURRENT_CHAPTER_TEXT || contentEl.innerText || contentEl.textContent || '').trim();
                 if (!text) {
                     showToast('章节内容为空', 3000, true);
                     fab.classList.remove('r3-loading');
@@ -1277,11 +1280,11 @@
                 var tmpl = editTplEl.value.trim();
                 if (!name) { showToast('请输入模板名称', 2500, true); return; }
                 if (!tmpl) { showToast('请输入提示词模板', 2500, true); return; }
-                if (!tmpl.indexOf('{{content}}')) {
-                    // allow templates that start with {{content}}
+                if (!tmpl.indexOf(CONTENT_TOKEN)) {
+                    // Allow templates that start with the content token.
                 }
-                if (tmpl.indexOf('{{content}}') === -1) {
-                    showToast('模板中必须包含 {{content}} 占位符', 3000, true);
+                if (tmpl.indexOf(CONTENT_TOKEN) === -1) {
+                    showToast('模板中必须包含 ' + CONTENT_TOKEN + ' 占位符', 3000, true);
                     return;
                 }
 
