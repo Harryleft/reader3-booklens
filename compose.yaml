@@ -1,0 +1,13 @@
+services:
+  booklens:
+    build: .
+    container_name: reader3-booklens
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8123:8123"
+    volumes:
+      - ./book:/app/book
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

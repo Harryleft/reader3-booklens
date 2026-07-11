@@ -164,37 +164,83 @@
         }
 
         .empty-state {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 210px;
+            display: flex;
+            min-height: 430px;
             align-items: center;
-            gap: 26px;
+            justify-content: center;
             border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            padding: 28px;
+            border-radius: 16px;
+            padding: 56px 28px;
             background: var(--surface);
             box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .empty-content {
+            width: min(560px, 100%);
+        }
+
+        .empty-icon {
+            display: inline-flex;
+            width: 76px;
+            height: 76px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            border-radius: 22px;
+            color: var(--accent);
+            background: #eaf3ff;
+        }
+
+        .empty-icon svg {
+            width: 38px;
+            height: 38px;
         }
 
         .empty-state h2 {
             margin: 0;
-            font-size: 24px;
+            font-size: 28px;
             line-height: 1.2;
         }
 
         .empty-state p {
-            margin: 10px 0 0;
+            max-width: 480px;
+            margin: 14px auto 0;
             color: var(--muted);
-            line-height: 1.7;
+            font-size: 16px;
+            line-height: 1.75;
         }
 
-        .empty-code {
-            display: grid;
-            gap: 9px;
-            border-left: 3px solid var(--accent);
-            padding-left: 18px;
+        .empty-action {
+            min-height: 48px;
+            margin-top: 28px;
+            border-radius: 10px;
+            padding: 0 24px;
+            font-size: 16px;
+        }
+
+        .empty-features {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px 18px;
+            margin-top: 26px;
             color: var(--muted);
-            font-family: "SFMono-Regular", Consolas, "Microsoft YaHei UI", monospace;
             font-size: 13px;
+        }
+
+        .empty-feature {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .empty-feature::before {
+            content: "✓";
+            color: #16883e;
+            font-weight: 700;
         }
 
         @media (max-width: 860px) {
@@ -217,9 +263,6 @@
                 width: 100%;
             }
 
-            .empty-state {
-                grid-template-columns: 1fr;
-            }
         }
 
         @media (max-width: 520px) {
@@ -239,7 +282,20 @@
             }
 
             .empty-state {
-                padding: 22px;
+                min-height: 390px;
+                padding: 40px 20px;
+            }
+
+            .empty-state h2 {
+                font-size: 25px;
+            }
+
+            .empty-features {
+                align-items: flex-start;
+                flex-direction: column;
+                width: fit-content;
+                margin-right: auto;
+                margin-left: auto;
             }
         }
     </style>
@@ -248,21 +304,32 @@
     <main class="page">
         <header class="topbar">
             <h1 class="section-title" id="library-title">我的书库</h1>
+            {% if books %}
             <nav class="top-actions" aria-label="首页操作">
                 <a class="btn" href="/import">＋ 导入书籍</a>
             </nav>
+            {% endif %}
         </header>
 
         <section id="library" aria-labelledby="library-title">
             {% if not books %}
             <div class="empty-state">
-                <div>
-                    <h2>书库还没有内容</h2>
-                    <p>可以从网页上传 EPUB，也可以在命令行处理本地文件后刷新本页。</p>
-                </div>
-                <div class="empty-code" aria-label="命令示例">
-                    <span>uv run server.py</span>
-                    <span>uv run reader3.py book.epub</span>
+                <div class="empty-content">
+                    <div class="empty-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
+                            <path d="M8 7h8M8 11h6"/>
+                        </svg>
+                    </div>
+                    <h2>开始建立你的书库</h2>
+                    <p>上传一本 EPUB，BookLens 会自动解析目录和章节。之后你可以在浏览器里阅读，并一键复制章节内容与 AI 共读。</p>
+                    <a class="btn empty-action" href="/import">＋ 上传第一本 EPUB</a>
+                    <div class="empty-features" aria-label="BookLens 功能">
+                        <span class="empty-feature">网页直接上传</span>
+                        <span class="empty-feature">自动解析章节</span>
+                        <span class="empty-feature">数据保存在你的服务器</span>
+                    </div>
                 </div>
             </div>
             {% else %}

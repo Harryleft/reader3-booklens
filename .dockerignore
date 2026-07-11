@@ -1,0 +1,6 @@
+.git
+.venv
+book
+image
+__pycache__
+*.pyc
