@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ display_title }}</title>
+    {% if cover_image_name %}
+    <link rel="icon" href="{{ request.url_for('serve_image', book_id=book_id, image_name=cover_image_name) }}">
+    {% endif %}
     <style>
         :root {
             --bg: #f5f5f7;

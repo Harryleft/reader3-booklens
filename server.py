@@ -54,6 +54,16 @@ def display_title(title: str) -> str:
     cleaned = parenthetical.sub(remove_promotional, title)
     return re.sub(r"\s{2,}", " ", cleaned).strip()
 
+
+def book_cover_image_name(book: Book) -> Optional[str]:
+    """Return the extracted filename that most likely represents the cover."""
+    candidates = []
+    for original_path, local_path in book.images.items():
+        original_name = os.path.basename(original_path).lower()
+        if "cover" in original_name or "fengmian" in original_name:
+            candidates.append(os.path.basename(local_path))
+    return candidates[0] if candidates else None
+
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:
     """
@@ -130,6 +140,7 @@ async def read_chapter(request: Request, book_id: str, chapter_index: int):
         "current_chapter": current_chapter,
         "chapter_index": chapter_index,
         "book_id": book_id,
+        "cover_image_name": book_cover_image_name(book),
         "prev_idx": prev_idx,
         "next_idx": next_idx
     })
