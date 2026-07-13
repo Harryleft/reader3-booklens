@@ -91,17 +91,43 @@
         }
 
         .book-card {
-            display: flex;
+            display: grid;
             position: relative;
-            flex-direction: column;
+            grid-template-columns: 120px minmax(0, 1fr);
+            gap: 22px;
             min-width: 0;
-            min-height: 184px;
+            min-height: 220px;
             border: 1px solid var(--line-soft);
             border-radius: 8px;
-            padding: 24px 26px;
+            padding: 20px;
             background: var(--surface);
             box-shadow: var(--shadow);
             transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .book-cover {
+            width: 120px;
+            aspect-ratio: 3 / 4;
+            align-self: center;
+            border-radius: 6px;
+            background: #ececf0;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+            object-fit: cover;
+        }
+
+        .book-cover-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .book-info {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
         }
 
         .book-card:hover {
@@ -161,6 +187,23 @@
         .book-action:hover {
             background: #dcecff;
             transform: translateX(2px);
+        }
+
+        @media (max-width: 520px) {
+            .book-card {
+                grid-template-columns: 90px minmax(0, 1fr);
+                gap: 16px;
+                min-height: 174px;
+                padding: 16px;
+            }
+
+            .book-cover {
+                width: 90px;
+            }
+
+            .book-title {
+                font-size: 19px;
+            }
         }
 
         .empty-state {
@@ -336,11 +379,23 @@
             <div class="book-grid">
                 {% for book in books %}
                 <article class="book-card">
-                    <h3 class="book-title">{{ book.title }}</h3>
-                    <div class="book-meta">
-                        <span>{{ book.author or "未知作者" }}</span>
+                    {% if book.cover_image_name %}
+                    <img
+                        class="book-cover"
+                        src="{{ request.url_for('serve_image', book_id=book.id, image_name=book.cover_image_name) }}"
+                        alt="《{{ book.title }}》封面"
+                        loading="lazy"
+                    >
+                    {% else %}
+                    <div class="book-cover book-cover-placeholder" aria-hidden="true">暂无封面</div>
+                    {% endif %}
+                    <div class="book-info">
+                        <h3 class="book-title">{{ book.title }}</h3>
+                        <div class="book-meta">
+                            <span>{{ book.author or "未知作者" }}</span>
+                        </div>
+                        <a class="book-action" href="/read/{{ book.id }}/0" aria-label="阅读《{{ book.title }}》">阅读 →</a>
                     </div>
-                    <a class="book-action" href="/read/{{ book.id }}/0" aria-label="阅读《{{ book.title }}》">阅读 →</a>
                 </article>
                 {% endfor %}
             </div>
