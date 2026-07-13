@@ -1,6 +1,7 @@
 import os
 import pickle
 import tempfile
+from dataclasses import replace
 from functools import lru_cache
 from typing import Optional
 
@@ -8,7 +9,15 @@ from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from reader3 import Book, BookMetadata, ChapterContent, TOCEntry, process_epub, save_to_pickle
+from reader3 import (
+    Book,
+    BookMetadata,
+    ChapterContent,
+    TOCEntry,
+    process_epub,
+    rewrite_content_image_paths,
+    save_to_pickle,
+)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -70,7 +79,16 @@ async def read_chapter(request: Request, book_id: str, chapter_index: int):
     if chapter_index < 0 or chapter_index >= len(book.spine):
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    current_chapter = book.spine[chapter_index]
+    stored_chapter = book.spine[chapter_index]
+    # Also repair books imported before SVG cover support was added. Imported
+    # EPUB files are not retained, so fixing at render time avoids forcing the
+    # user to upload the book again.
+    current_chapter = replace(
+        stored_chapter,
+        content=rewrite_content_image_paths(
+            stored_chapter.content, stored_chapter.href, book.images
+        ),
+    )
 
     # Calculate Prev/Next links
     prev_idx = chapter_index - 1 if chapter_index > 0 else None

@@ -3,6 +3,7 @@ Parses an EPUB file into a structured object that can be used to serve the book 
 """
 
 import os
+import posixpath
 import pickle
 import shutil
 from dataclasses import dataclass, field
@@ -91,6 +92,46 @@ def extract_plain_text(soup: BeautifulSoup) -> str:
     text = soup.get_text(separator=' ')
     # Collapse whitespace
     return ' '.join(text.split())
+
+
+def rewrite_content_image_paths(
+    html: str,
+    document_href: str,
+    image_map: Dict[str, str],
+) -> str:
+    """Rewrite raster and SVG image references to extracted local files."""
+    soup = BeautifulSoup(html, 'html.parser')
+    mapped_paths = set(image_map.values())
+
+    def resolve(reference: str) -> Optional[str]:
+        decoded = unquote(reference).split('#', 1)[0].split('?', 1)[0]
+        if not decoded or decoded in mapped_paths:
+            return reference
+
+        document_dir = posixpath.dirname(document_href)
+        normalized = posixpath.normpath(posixpath.join(document_dir, decoded)).lstrip('/')
+        direct = posixpath.normpath(decoded).lstrip('/')
+        filename = posixpath.basename(decoded)
+
+        for candidate in (normalized, direct, decoded, filename):
+            if candidate in image_map:
+                return image_map[candidate]
+        return reference
+
+    for img in soup.find_all('img'):
+        src = img.get('src')
+        if src:
+            img['src'] = resolve(src)
+
+    # EPUB covers are frequently embedded as SVG <image> elements rather than
+    # HTML <img> tags. EPUB 2 commonly uses xlink:href; EPUB 3 may use href.
+    for image in soup.find_all('image'):
+        for attribute in ('href', 'xlink:href'):
+            reference = image.get(attribute)
+            if reference:
+                image[attribute] = resolve(reference)
+
+    return str(soup)
 
 
 def parse_toc_recursive(toc_list, depth=0) -> List[TOCEntry]:
@@ -233,20 +274,11 @@ def process_epub(epub_path: str, output_dir: str) -> Book:
             raw_content = item.get_content().decode('utf-8', errors='ignore')
             soup = BeautifulSoup(raw_content, 'html.parser')
 
-            # A. Fix Images
-            for img in soup.find_all('img'):
-                src = img.get('src', '')
-                if not src: continue
-
-                # Decode URL (part01/image%201.jpg -> part01/image 1.jpg)
-                src_decoded = unquote(src)
-                filename = os.path.basename(src_decoded)
-
-                # Try to find in map
-                if src_decoded in image_map:
-                    img['src'] = image_map[src_decoded]
-                elif filename in image_map:
-                    img['src'] = image_map[filename]
+            # A. Fix raster images and SVG-embedded cover images.
+            rewritten_content = rewrite_content_image_paths(
+                str(soup), item.get_name(), image_map
+            )
+            soup = BeautifulSoup(rewritten_content, 'html.parser')
 
             # B. Clean HTML
             soup = clean_html_content(soup)
