@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ book.metadata.title }}</title>
+    <title>{{ display_title }}</title>
     <style>
         :root {
             --bg: #f5f5f7;
@@ -603,7 +603,7 @@
     <!-- SIDEBAR -->
     <div id="sidebar">
         <a href="/" class="nav-home">← 返回书库</a>
-        <div class="nav-header">{{ book.metadata.title }}</div>
+        <div class="nav-header">{{ display_title }}</div>
 
         <!-- Recursive Macro for TOC -->
         {% macro render_toc(items) %}

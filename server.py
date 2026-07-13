@@ -1,5 +1,6 @@
 import os
 import pickle
+import re
 import tempfile
 from dataclasses import replace
 from functools import lru_cache
@@ -24,6 +25,34 @@ templates = Jinja2Templates(directory="templates")
 
 # Where are the book folders located?
 BOOKS_DIR = "book"
+
+PROMOTIONAL_TITLE_TERMS = (
+    "必读",
+    "经典",
+    "畅销",
+    "推荐",
+    "启发",
+    "奠基之作",
+    "认知突围",
+    "预言书",
+    "销量",
+    "荣获",
+    "入选",
+)
+
+
+def display_title(title: str) -> str:
+    """Hide publisher marketing copy while preserving useful title qualifiers."""
+    parenthetical = re.compile(r"（[^（）]*）|\([^()]*\)")
+
+    def remove_promotional(match: re.Match[str]) -> str:
+        content = match.group(0)[1:-1]
+        if any(term in content for term in PROMOTIONAL_TITLE_TERMS):
+            return ""
+        return match.group(0)
+
+    cleaned = parenthetical.sub(remove_promotional, title)
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:
@@ -57,7 +86,7 @@ async def library_view(request: Request):
                 if book:
                     books.append({
                         "id": item,
-                        "title": book.metadata.title,
+                        "title": display_title(book.metadata.title),
                         "author": ", ".join(book.metadata.authors),
                         "chapters": len(book.spine)
                     })
@@ -97,6 +126,7 @@ async def read_chapter(request: Request, book_id: str, chapter_index: int):
     return templates.TemplateResponse("reader.html", {
         "request": request,
         "book": book,
+        "display_title": display_title(book.metadata.title),
         "current_chapter": current_chapter,
         "chapter_index": chapter_index,
         "book_id": book_id,
@@ -152,7 +182,7 @@ async def upload_epub(file: UploadFile = File(...)):
 
     return JSONResponse({
         "success": True,
-        "title": book_obj.metadata.title,
+        "title": display_title(book_obj.metadata.title),
         "author": ", ".join(book_obj.metadata.authors),
         "chapters": len(book_obj.spine),
     })
