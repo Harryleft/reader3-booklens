@@ -1,1391 +1,414 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ display_title }}</title>
-    {% if cover_image_name %}
-    <link rel="icon" href="{{ request.url_for('serve_image', book_id=book_id, image_name=cover_image_name) }}">
-    {% endif %}
-    <style>
-        :root {
-            --bg: #f5f5f7;
-            --surface: #ffffff;
-            --text: #1d1d1f;
-            --muted: #6e6e73;
-            --line: #d2d2d7;
-            --line-soft: #e5e5ea;
-            --accent: #0071e3;
-            --accent-hover: #0077ed;
-            --accent-soft: #eaf3ff;
-            --danger: #d70015;
-            --success: #248a3d;
-            --shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            display: flex;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-            color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-            background: var(--bg);
-        }
-
-        #sidebar {
-            width: 300px;
-            flex-shrink: 0;
-            overflow-y: auto;
-            border-right: 1px solid var(--line-soft);
-            padding: 64px 22px 22px;
-            background: var(--surface);
-            transition: margin-left 0.3s ease, opacity 0.3s ease;
-        }
-
-        #sidebar.collapsed {
-            margin-left: -300px;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        #sidebar-toggle {
-            position: fixed;
-            top: 14px;
-            left: 14px;
-            z-index: 1000;
-            display: flex;
-            width: 38px;
-            height: 38px;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.92);
-            box-shadow: var(--shadow);
-            cursor: pointer;
-            transition: left 0.3s ease, background 160ms ease;
-        }
-
-        #sidebar-toggle:hover {
-            background: var(--surface);
-        }
-
-        #sidebar.collapsed ~ #sidebar-toggle {
-            left: 14px;
-        }
-
-        #sidebar:not(.collapsed) ~ #sidebar-toggle {
-            left: 314px;
-        }
-
-        .nav-header {
-            margin-bottom: 16px;
-            padding-bottom: 14px;
-            border-bottom: 1px solid var(--line-soft);
-            color: var(--text);
-            font-size: 15px;
-            font-weight: 700;
-            line-height: 1.45;
-        }
-
-        .nav-home {
-            display: block;
-            margin-bottom: 18px;
-            color: var(--accent);
-            font-size: 14px;
-            font-weight: 500;
-            text-decoration: none;
-        }
-
-        .nav-home:hover {
-            text-decoration: underline;
-        }
-
-        ul.toc-list {
-            margin: 0;
-            padding-left: 0;
-            list-style: none;
-        }
-
-        ul.toc-list ul {
-            padding-left: 16px;
-        }
-
-        li.toc-item {
-            margin-bottom: 4px;
-        }
-
-        a.toc-link {
-            display: block;
-            border-radius: 6px;
-            padding: 6px 8px;
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.45;
-            text-decoration: none;
-        }
-
-        a.toc-link:hover {
-            color: var(--text);
-            background: #f2f2f2;
-        }
-
-        a.toc-link.active {
-            color: var(--accent);
-            background: var(--accent-soft);
-            font-weight: 600;
-        }
-
-        #main {
-            position: relative;
-            flex-grow: 1;
-            overflow-y: auto;
-            scroll-behavior: smooth;
-            background: var(--bg);
-        }
-
-        .content-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 72px 42px 56px;
-            color: var(--text);
-            font-size: 18px;
-            line-height: 1.85;
-        }
-
-        .book-content {
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            padding: 42px;
-            background: var(--surface);
-            box-shadow: var(--shadow);
-        }
-
-        .book-content img {
-            display: block;
-            max-width: 100%;
-            height: auto;
-            margin: 24px auto;
-            border-radius: 8px;
-        }
-
-        .book-content h1,
-        .book-content h2,
-        .book-content h3,
-        .book-content h4,
-        .book-content h5,
-        .book-content h6 {
-            margin: 1.35em 0 0.85em;
-            color: var(--text);
-            font-weight: 700;
-            line-height: 1.3;
-        }
-
-        .book-content > :first-child {
-            margin-top: 0;
-        }
-
-        .book-content p {
-            margin-bottom: 1.4em;
-            text-align: justify;
-        }
-
-        .book-content p:has(> br:only-child) {
-            display: none;
-        }
-
-        .chapter-nav {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            margin-top: 28px;
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .nav-btn {
-            display: inline-flex;
-            min-height: 40px;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 0 16px;
-            color: var(--accent);
-            font-weight: 600;
-            text-decoration: none;
-            transition: border-color 160ms ease, background 160ms ease;
-        }
-
-        .nav-btn:hover {
-            border-color: var(--accent);
-            background: var(--accent-soft);
-        }
-
-        .nav-btn.disabled {
-            color: var(--muted);
-            opacity: 0.55;
-            pointer-events: none;
-        }
-
-        #reading-progress {
-            position: fixed;
-            top: 16px;
-            right: 24px;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        #reading-progress .r3-pbar {
-            width: 120px;
-            height: 6px;
-            overflow: hidden;
-            border-radius: 999px;
-            background: var(--line-soft);
-        }
-
-        #reading-progress .r3-pbar-fill {
-            height: 100%;
-            border-radius: 999px;
-            background: var(--accent);
-            transition: width 0.3s ease;
-        }
-
-        #reading-progress .r3-ptext {
-            white-space: nowrap;
-        }
-
-        #reader3-fab {
-            position: fixed;
-            right: 24px;
-            bottom: 80px;
-            z-index: 99999;
-            display: flex;
-            width: 48px;
-            height: 48px;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            border-radius: 50%;
-            padding: 0;
-            color: #ffffff;
-            background: var(--accent);
-            box-shadow: 0 12px 28px rgba(0, 113, 227, 0.24);
-            cursor: pointer;
-            user-select: none;
-            transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
-        }
-
-        #reader3-fab:hover {
-            background: var(--accent-hover);
-            box-shadow: 0 14px 34px rgba(0, 113, 227, 0.3);
-            transform: translateY(-1px);
-        }
-
-        #reader3-fab:active {
-            transform: scale(0.96);
-        }
-
-        #reader3-fab.r3-loading {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        #reader3-fab.r3-loading svg {
-            animation: r3-fab-spin 0.8s linear infinite;
-        }
-
-        @keyframes r3-fab-spin {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        #reader3-toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            z-index: 999999;
-            border-radius: 8px;
-            padding: 10px 22px;
-            color: #ffffff;
-            background: var(--success);
-            box-shadow: var(--shadow);
-            font-size: 14px;
-            font-weight: 500;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateX(-50%) translateY(-20px);
-            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-        }
-
-        #reader3-toast.r3-toast-show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        #reader3-toast.r3-toast-error {
-            background: var(--danger);
-        }
-
-        #r3-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 100000;
-            display: none;
-            background: rgba(0, 0, 0, 0.28);
-        }
-
-        #r3-overlay.r3-show {
-            display: block;
-        }
-
-        .r3-panel {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            z-index: 100001;
-            display: flex;
-            width: 520px;
-            max-width: 90vw;
-            max-height: 80vh;
-            flex-direction: column;
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            background: var(--surface);
-            box-shadow: 0 18px 54px rgba(0, 0, 0, 0.16);
-            transform: translate(-50%, -50%);
-        }
-
-        .r3-panel-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--line-soft);
-            padding: 16px 20px;
-            color: var(--text);
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .r3-panel-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 14px 20px;
-        }
-
-        .r3-panel-footer {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            border-top: 1px solid var(--line-soft);
-            padding: 12px 20px;
-        }
-
-        .r3-tpl-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 6px;
-            border-radius: 8px;
-            padding: 10px 12px;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .r3-tpl-item:hover {
-            background: #f2f2f2;
-        }
-
-        .r3-tpl-item.r3-active {
-            background: var(--accent-soft);
-        }
-
-        .r3-tpl-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .r3-tpl-name {
-            color: var(--text);
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .r3-tpl-desc {
-            margin-top: 2px;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        .r3-tpl-badge {
-            display: inline-block;
-            margin-left: 6px;
-            border-radius: 6px;
-            padding: 1px 6px;
-            color: var(--accent);
-            background: var(--accent-soft);
-            font-size: 11px;
-        }
-
-        .r3-tpl-actions {
-            display: flex;
-            flex-shrink: 0;
-            gap: 4px;
-            margin-left: 8px;
-        }
-
-        .r3-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            border-radius: 8px;
-            padding: 7px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s, opacity 0.15s;
-        }
-
-        .r3-btn-primary {
-            color: #ffffff;
-            background: var(--accent);
-        }
-
-        .r3-btn-primary:hover {
-            background: var(--accent-hover);
-        }
-
-        .r3-btn-secondary {
-            color: var(--text);
-            background: #f2f2f2;
-        }
-
-        .r3-btn-secondary:hover {
-            background: #e8e8ed;
-        }
-
-        .r3-btn-sm {
-            padding: 5px 10px;
-            font-size: 12px;
-        }
-
-        .r3-btn-danger {
-            color: var(--danger);
-            background: #fff1f2;
-        }
-
-        .r3-btn-danger:hover {
-            background: #ffe5e8;
-        }
-
-        .r3-form-group {
-            margin-bottom: 14px;
-        }
-
-        .r3-form-label {
-            display: block;
-            margin-bottom: 5px;
-            color: var(--text);
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .r3-form-input,
-        .r3-form-textarea {
-            width: 100%;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 9px 12px;
-            font-family: inherit;
-            font-size: 14px;
-            transition: border-color 0.15s, box-shadow 0.15s;
-        }
-
-        .r3-form-input:focus,
-        .r3-form-textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.14);
-        }
-
-        .r3-form-textarea {
-            height: 240px;
-            resize: vertical;
-            font-family: "SFMono-Regular", Consolas, Menlo, monospace;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .r3-form-hint {
-            margin-top: 4px;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        .r3-tabs {
-            display: flex;
-            gap: 0;
-        }
-
-        .r3-tab {
-            border: none;
-            border-bottom: 2px solid transparent;
-            padding: 6px 16px;
-            color: var(--muted);
-            background: none;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: color 0.15s, border-color 0.15s;
-        }
-
-        .r3-tab:hover {
-            color: var(--text);
-        }
-
-        .r3-tab.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
-
-        @media (max-width: 820px) {
-            #sidebar {
-                position: fixed;
-                inset: 0 auto 0 0;
-                z-index: 900;
-                box-shadow: var(--shadow);
-            }
-
-            #sidebar:not(.collapsed) ~ #sidebar-toggle {
-                left: 314px;
-            }
-
-            .content-container {
-                padding: 72px 16px 48px;
-            }
-
-            .book-content {
-                padding: 26px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ display_title }}</title>
+  {% if cover_image_name %}<link rel="icon" href="{{ request.url_for('serve_image', book_id=book_id, image_name=cover_image_name) }}">{% else %}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2324272d'/%3E%3Cpath d='M8 9.5c3-1 5.7-.4 8 1.4 2.3-1.8 5-2.4 8-1.4v14c-3-.9-5.7-.3-8 1.5-2.3-1.8-5-2.4-8-1.5z' fill='white'/%3E%3C/svg%3E">{% endif %}
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas:#f5f6f8; --paper:#fff; --paper-soft:#f7f8fa; --text:#24272d; --muted:#8a9099;
+      --line:#e8eaed; --line-strong:#dfe2e7; --accent:#1f8fff; --accent-soft:#eaf5ff;
+      --shadow:0 18px 60px rgba(24,31,42,.12); --reader-size:20px; --reader-leading:1.9;
+      --ai-panel-width:400px;
+      --reader-font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    }
+    html[data-theme="dark"] {
+      color-scheme:dark; --canvas:#171819; --paper:#202123; --paper-soft:#292a2d; --text:#c7c9cd;
+      --muted:#858990; --line:#303236; --line-strong:#3b3d42; --accent:#4ba5ff; --accent-soft:#18344c;
+      --shadow:0 20px 70px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+    html,body{margin:0;height:100%;overflow:hidden}
+    body{background:var(--canvas);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;transition:background .2s,color .2s}
+    button,input,textarea{font:inherit}
+    button{color:inherit}
+    .app{height:100%;display:flex;flex-direction:column}
+    .topbar{width:min(100%,1140px);height:64px;flex:0 0 64px;margin:0 auto;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--paper) 96%,transparent);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 26px;position:relative;z-index:20;transition:width .26s ease,margin .26s ease}
+    .brand{grid-column:1;justify-self:start;display:flex;align-items:center;min-width:0;max-width:100%;color:var(--text);text-decoration:none;font-weight:600}
+    .book-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .top-actions{grid-column:3;justify-self:end;display:flex;align-items:center;gap:18px;font-size:14px;color:var(--muted)}
+    .top-actions a{color:inherit;text-decoration:none}.top-actions a:hover{color:var(--text)}
+    .divider{width:1px;height:16px;background:var(--line-strong)}
+    .reader-shell{min-height:0;flex:1;position:relative;transition:margin .26s ease}
+    #main{height:100%;overflow:auto;scroll-behavior:smooth;scrollbar-gutter:stable both-edges;padding:0 92px}
+    .content-wrap{width:min(100%,1140px);margin:0 auto;padding:0 0 64px}
+    .book-content{min-height:calc(100vh - 128px);padding:38px 115px 40px;background:var(--paper);font-family:var(--reader-font);font-size:var(--reader-size);line-height:var(--reader-leading);letter-spacing:.01em;transition:background .2s,color .2s,font-size .2s}
+    .book-content p{margin:0 0 1.45em;text-align:justify;word-break:break-word}
+    .book-content h1,.book-content h2,.book-content h3,.book-content h4{margin:1.7em 0 .8em;line-height:1.35;color:var(--text)}
+    .book-content h1{font-size:1.65em}.book-content h2{font-size:1.4em}.book-content h3{font-size:1.18em}
+    .book-content img,.book-content svg{display:block;max-width:100%;height:auto;margin:28px auto}
+    .book-content blockquote{margin:1.5em 0;padding:.2em 1.2em;border-left:3px solid var(--line-strong);color:var(--muted)}
+    .book-content a{color:var(--accent)}
+    .book-content>:first-child{margin-top:0}
+    .chapter-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;padding:28px 115px 0;color:var(--muted);font-size:14px}
+    .chapter-nav a{color:var(--accent);text-decoration:none}.chapter-nav .next{text-align:right}.chapter-nav .disabled{opacity:.4}
+    .progress-track{position:fixed;left:0;right:0;bottom:0;height:2px;background:transparent;z-index:30}
+    .progress-fill{height:100%;background:var(--accent);width:0;transition:width .12s linear}
+    .toolbar{grid-column:2;justify-self:center;height:64px;display:flex;flex-direction:row;align-items:center;gap:6px;padding:0 8px;border:0;background:transparent;box-shadow:none;transition:opacity .18s,transform .18s}
+    .tool-btn{width:48px;height:48px;border:1px solid transparent;border-radius:50%;background:transparent;display:grid;place-items:center;font-size:20px;color:var(--muted);cursor:pointer;transition:.18s}
+    .tool-btn:hover,.tool-btn.active{color:var(--accent);transform:translateY(-1px);box-shadow:0 10px 26px rgba(28,34,42,.12)}
+    .tool-btn .ai-mark{font-family:Georgia,serif;font-size:19px}.tool-btn .ai-mark sup{font-size:9px}
+    .sheet-backdrop{position:fixed;inset:64px 0 0;background:rgba(16,19,23,.36);z-index:40;opacity:0;pointer-events:none;transition:.2s}
+    .sheet-backdrop.open{opacity:0;pointer-events:none}
+    .side-sheet{position:fixed;top:64px;bottom:0;background:var(--paper);z-index:45;transition:transform .26s ease;display:flex;flex-direction:column}
+    #toc-sheet{top:0;left:max(0px,calc((100vw - 1140px)/2 - 336px));width:320px;border:1px solid var(--line);border-top:0;box-shadow:12px 0 34px rgba(22,28,37,.08);transform:translateX(calc(-100% - max(0px,calc((100vw - 1140px)/2 - 336px))))}
+    #ai-sheet{top:0;right:0;width:var(--ai-panel-width);border-left:1px solid var(--line);box-shadow:-12px 0 34px rgba(22,28,37,.08);transform:translateX(105%)}
+    #toc-sheet.open,#ai-sheet.open{transform:translateX(0)!important}
+    .ai-resizer{position:absolute;left:-7px;top:0;bottom:0;width:14px;z-index:7;cursor:col-resize;touch-action:none;outline:0}
+    .ai-resizer::after{content:"";position:absolute;left:6px;top:0;bottom:0;width:2px;background:transparent;transition:background .16s}
+    .ai-resizer:hover::after,.ai-resizer:focus-visible::after,body.resizing-ai .ai-resizer::after{background:var(--accent)}
+    body.resizing-ai{cursor:col-resize;user-select:none}body.resizing-ai .reader-shell,body.resizing-ai .topbar,body.resizing-ai .toolbar{transition:none}
+    .sheet-head{height:64px;flex:0 0 64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;position:relative;padding:0 54px}
+    .sheet-head strong{font-size:16px}.sheet-head small{display:block;text-align:center;color:var(--muted);font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .close-sheet{position:absolute;right:18px;top:14px;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;font-size:20px}.close-sheet:hover{background:var(--paper-soft)}
+    .ai-head-actions{position:absolute;right:14px;top:14px;display:flex;align-items:center;gap:2px}.ai-head-action,.ai-head-actions .close-sheet{position:static;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;font-size:18px}.ai-head-action:hover,.ai-head-actions .close-sheet:hover{background:var(--paper-soft);color:var(--text)}
+    .toc-search{flex:0 0 auto;padding:14px 18px 10px}.toc-search-box{height:40px;display:flex;align-items:center;gap:9px;padding:0 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--paper-soft);color:var(--muted);transition:.16s}.toc-search-box:focus-within{border-color:var(--accent);background:var(--paper);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}.toc-search-box input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:13px}.toc-search-box input::-webkit-search-cancel-button{display:none}.toc-search-box input::placeholder{color:var(--muted)}.toc-search-clear{width:24px;height:24px;border:0;border-radius:50%;padding:0;background:transparent;color:var(--muted);cursor:pointer}.toc-search-clear:hover{color:var(--text)}.toc-search-meta{padding:7px 2px 0;color:var(--muted);font-size:11px}
+    .toc-body{min-height:0;flex:1;padding:0 18px 50px;overflow:auto}
+    .toc-home{display:flex;align-items:center;gap:8px;color:var(--accent);text-decoration:none;padding:10px 12px;margin-bottom:8px}
+    .toc-list{list-style:none;padding:0;margin:0}.toc-list .toc-list{padding-left:15px}
+    .toc-item{margin:2px 0}.toc-link{display:block;padding:9px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:14px;line-height:1.45}
+    .toc-link:hover{background:var(--paper-soft);color:var(--text)}.toc-link.active{background:var(--accent-soft);color:var(--accent);font-weight:600}.toc-item[hidden]{display:none}.toc-search-results{display:flex;flex-direction:column;gap:8px;padding-top:4px}.toc-search-results[hidden]{display:none}.toc-search-result{display:block;padding:11px 12px;border-radius:9px;color:var(--text);text-decoration:none;background:var(--paper-soft);cursor:pointer}.toc-search-result:hover,.toc-search-result:focus-visible{background:var(--accent-soft);outline:0}.toc-search-result strong{display:block;color:var(--accent);font-size:13px;line-height:1.45}.toc-search-result span{display:-webkit-box;overflow:hidden;margin-top:5px;color:var(--muted);font-size:11px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:3}.toc-empty{padding:44px 12px;color:var(--muted);font-size:13px;text-align:center}.search-result-mark{border-radius:3px;padding:0 .08em;background:#ffe58f;color:inherit}
+    .ai-body{min-height:0;flex:1;display:flex;flex-direction:column}
+    .scope-summary{width:100%;height:48px;flex:0 0 48px;display:flex;align-items:center;gap:8px;padding:0 18px;border:0;border-bottom:1px solid var(--line);background:var(--paper);text-align:left;cursor:pointer}.scope-summary:hover{background:var(--paper-soft)}.scope-summary-label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}.scope-summary-spacer{flex:1}.analysis-mode{padding:4px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:10px}.analysis-chevron{color:var(--muted);transition:transform .18s}.scope-summary[aria-expanded="true"] .analysis-chevron{transform:rotate(180deg)}
+    .ai-settings{position:absolute;inset:64px 0 0;z-index:6;display:flex;flex-direction:column;background:var(--paper)}.ai-settings[hidden]{display:none}.ai-settings-head{height:52px;flex:0 0 52px;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid var(--line)}.ai-settings-head strong{font-size:14px}.ai-settings-close{margin-left:auto;width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;font-size:17px}.ai-settings-close:hover{background:var(--paper-soft);color:var(--text)}.ai-settings-body{min-height:0;flex:1;overflow:auto;padding:20px 18px}.analysis-config-title{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px}.analysis-config-title .analysis-mode{margin-left:auto}.analysis-config-note{margin:0 0 12px;color:var(--muted);font-size:11px;line-height:1.55}.analysis-prompt{display:block;width:100%;height:260px;resize:vertical;border:1px solid var(--line-strong);border-radius:10px;background:var(--paper-soft);color:var(--text);padding:11px 12px;font-size:12px;line-height:1.6;outline:0}.analysis-prompt:focus{border-color:var(--accent);background:var(--paper);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}.analysis-config-actions{display:flex;align-items:center;gap:8px;margin-top:10px}.analysis-count{margin-right:auto;color:var(--muted);font-size:10px}.prompt-action{border:1px solid var(--line-strong);border-radius:8px;background:var(--paper);padding:7px 10px;font-size:11px;cursor:pointer}.prompt-action.primary{border-color:var(--accent);background:var(--accent);color:#fff}
+    .scope-config{max-height:55vh;flex:0 1 auto;overflow:auto;padding:14px 18px 16px;border-bottom:1px solid var(--line);background:var(--paper-soft)}.scope-config[hidden]{display:none}.scope-detail{margin:0 0 11px;color:var(--muted);font-size:11px;line-height:1.45}.scope-options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.scope-option{display:flex;align-items:center;justify-content:center;gap:5px;min-height:38px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--muted);font-size:11px;cursor:pointer}.scope-option:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}.scope-option input{position:absolute;opacity:0;pointer-events:none}.scope-picker{margin-top:12px}.scope-picker[hidden]{display:none}.scope-filter{width:100%;height:36px;border:1px solid var(--line-strong);border-radius:9px;background:var(--paper);color:var(--text);padding:0 11px;outline:0;font-size:12px}.scope-filter:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}.scope-picker-actions{display:flex;align-items:center;gap:8px;padding:9px 0}.scope-picker-actions button{border:0;background:transparent;color:var(--accent);padding:0;font-size:11px;cursor:pointer}.scope-picker-actions span{margin-left:auto;color:var(--muted);font-size:10px}.scope-chapter-list{max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper)}.scope-chapter{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-bottom:1px solid var(--line);cursor:pointer}.scope-chapter:last-child{border-bottom:0}.scope-chapter:hover{background:var(--paper-soft)}.scope-chapter[hidden]{display:none}.scope-chapter input{margin-top:3px;accent-color:var(--accent)}.scope-chapter span{min-width:0;color:var(--text);font-size:11px;line-height:1.45}.scope-chapter b{display:block;color:var(--muted);font-size:9px;font-weight:500}.scope-save{display:block;width:100%;margin-top:12px;border:0;border-radius:9px;background:var(--accent);color:#fff;padding:9px 12px;font-size:12px;cursor:pointer}
+    .messages{min-height:0;flex:1;overflow:auto;padding:22px 20px 16px}
+    .ai-empty{display:none!important}
+    .message{margin-bottom:18px;font-size:14px;line-height:1.75}.message.user{display:flex;justify-content:flex-end}.message.user .bubble{max-width:86%;padding:10px 14px;border-radius:16px 16px 4px 16px;background:var(--accent);color:#fff}
+    .message.assistant .bubble{white-space:normal;color:var(--text)}.message.assistant .bubble h3{font-size:15px;margin:15px 0 6px}.message.assistant .bubble p{margin:0 0 9px}.message.assistant .bubble ul{padding-left:20px;margin:5px 0 10px}
+    .thinking{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}.dots{display:flex;gap:4px}.dots i{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:pulse 1.2s infinite}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}@keyframes pulse{50%{opacity:.25;transform:translateY(-2px)}}
+    .ai-footer{padding:12px 18px 18px;background:linear-gradient(transparent,var(--paper) 14%)}
+    .ask-box{display:flex;align-items:flex-end;gap:8px;border:1px solid var(--line-strong);border-radius:16px;background:var(--paper-soft);padding:8px 8px 8px 13px;transition:.16s}.ask-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+    #ask-input{min-height:28px;max-height:110px;flex:1;resize:none;border:0;outline:0;background:transparent;color:var(--text);line-height:1.5;padding:4px 0}.ask-send{flex:0 0 36px;width:36px;height:36px;border:0;border-radius:50%;background:var(--accent);color:#fff;cursor:pointer}.ask-send:disabled{opacity:.35;cursor:not-allowed}
+    .ai-note{font-size:10px;text-align:center;color:var(--muted);padding-top:7px}
+    .settings{position:fixed;right:max(92px,calc((100vw - 1140px)/2));top:112px;z-index:47;width:400px;max-height:calc(100vh - 132px);overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--paper);box-shadow:var(--shadow);padding:26px 20px;opacity:0;pointer-events:none;transform:translateY(18px) scale(.98);transition:.18s}
+    .settings.open{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+    .settings h3{font-size:17px;margin:0 0 16px}.setting-row{margin-bottom:26px}.setting-label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:10px}.setting-value{color:var(--muted);font-weight:400}.font-scale{display:grid;grid-template-columns:24px 1fr 24px;align-items:center;gap:10px;padding:8px 10px;border-radius:999px;background:var(--paper-soft);color:var(--muted);font-size:11px}.font-scale span:last-child{font-size:17px;text-align:right}
+    input[type=range]{width:100%;accent-color:var(--accent)}.font-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0 0 18px;padding:3px;border-radius:999px;background:var(--paper-soft)}.font-tab{border:0;border-radius:999px;padding:7px 4px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer}.font-tab.active{background:var(--paper);color:var(--text);box-shadow:0 2px 8px rgba(20,25,32,.08)}
+    .font-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.font-option{min-height:54px;border:1px solid transparent;border-radius:9px;background:var(--paper-soft);padding:8px 4px;cursor:pointer;font-size:12px}.font-option:hover{border-color:var(--line-strong)}.font-option.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}.font-option[hidden]{display:none}
+    .reader-toast{position:fixed;left:50%;bottom:34px;z-index:100;transform:translate(-50%,16px);padding:10px 16px;border-radius:10px;background:rgba(30,32,36,.92);color:#fff;font-size:13px;opacity:0;transition:.18s;pointer-events:none}.reader-toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(min-width:901px) and (max-width:1779px){
+      .app.sheet-left-open .topbar{width:min(calc(100% - 320px),1140px);margin-left:320px;margin-right:auto}
+      .app.sheet-left-open .reader-shell{margin-left:320px}
+    }
+    @media(min-width:901px) and (max-width:1971px){
+      .app.sheet-ai-open .topbar{width:min(calc(100% - var(--ai-panel-width)),1140px);margin-left:max(0px,calc((100vw - var(--ai-panel-width) - 1140px)/2));margin-right:auto}
+      .app.sheet-ai-open .reader-shell{margin-right:var(--ai-panel-width)}
+    }
+    @media(min-width:901px) and (max-width:1199px){
+      .app.sheet-left-open #main,.app.sheet-right-open #main{padding-left:24px;padding-right:24px}
+      .app.sheet-left-open .book-content,.app.sheet-right-open .book-content{padding-left:64px;padding-right:64px}
+      .app.sheet-left-open .chapter-nav,.app.sheet-right-open .chapter-nav{padding-left:64px;padding-right:64px}
+      .app:has(.side-sheet.open) .topbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+      .app:has(.side-sheet.open) .toolbar{display:none}
+      .app:has(.side-sheet.open) .top-actions{grid-column:2}
+    }
+    @media(max-width:900px){
+      .topbar{padding:0 18px}.top-actions .library-label,.divider{display:none}.book-title{max-width:56vw}
+      #main{padding:0}.content-wrap{padding:0}.book-content{min-height:100%;padding:30px 22px 110px}.chapter-nav{padding:24px 22px 110px}.chapter-count{display:none}
+      .toolbar{position:fixed;left:50%;right:auto;top:auto;bottom:18px;transform:translateX(-50%);z-index:46;height:64px;flex-direction:row;gap:6px;padding:7px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--paper) 94%,transparent);box-shadow:var(--shadow)}
+      .app:has(.side-sheet.open) .toolbar{opacity:0;pointer-events:none;transform:translate(-50%,12px)}
+      .tool-btn{width:46px;height:46px;box-shadow:none}.settings{left:12px;right:12px;top:auto;bottom:84px;width:auto;max-height:72vh;transform:translateY(20px)}.settings.open{transform:none}.font-options{grid-template-columns:repeat(3,1fr)}
+      .sheet-backdrop{inset:64px 0 0}.sheet-backdrop.open{opacity:1;pointer-events:auto}
+      .app.sheet-right-open .reader-shell{margin:0}.app.sheet-right-open #main{padding:0}.app.sheet-right-open .toolbar{right:auto}
+      #toc-sheet,#ai-sheet{left:0;right:0;width:100%;transform:translateX(105%)}#toc-sheet{transform:translateX(-105%)}#toc-sheet.open,#ai-sheet.open{transform:translateX(0)}
+      .ai-resizer{display:none}
+    }
+  </style>
 </head>
 <body>
+<div class="app" id="reader-app">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="返回书架">
+      <span class="book-title">{{ display_title }}</span>
+    </a>
+    <aside class="toolbar" aria-label="阅读工具">
+      <button class="tool-btn" data-action="toc" title="目录" aria-label="目录"><i class="bi bi-list"></i></button>
+      <button class="tool-btn" data-action="ai" title="AI 问书" aria-label="AI 问书"><span class="ai-mark">A<sup>i</sup></span></button>
+      <button class="tool-btn" data-action="font" title="字号与字体" aria-label="字号与字体"><i class="bi bi-fonts"></i></button>
+      <button class="tool-btn" data-action="theme" title="深浅色转换" aria-label="深浅色转换"><i class="bi bi-moon"></i></button>
+    </aside>
+    <nav class="top-actions"><a href="/">首页</a><span class="divider"></span><a href="/" class="library-label">我的书架</a></nav>
+  </header>
 
-    <!-- Reading Progress -->
-    <div id="reading-progress">
-        <span class="r3-ptext">{{ chapter_index + 1 }} / {{ book.spine|length }}</span>
-        <div class="r3-pbar"><div class="r3-pbar-fill" style="width: {{ ((chapter_index + 1) / book.spine|length * 100)|round|int }}%"></div></div>
-        <span class="r3-ptext">{{ ((chapter_index + 1) / book.spine|length * 100)|round|int }}%</span>
+  <div class="reader-shell" id="reader-shell">
+    <main id="main">
+      <div class="content-wrap">
+        <article class="book-content">{{ current_chapter.content | safe }}</article>
+        <nav class="chapter-nav">
+          {% if prev_idx is not none %}<a href="/read/{{ book_id }}/{{ prev_idx }}"><i class="bi bi-chevron-left"></i> 上一章</a>{% else %}<span class="disabled">上一章</span>{% endif %}
+          <span class="chapter-count">第 {{ chapter_index + 1 }} / {{ book.spine|length }} 节</span>
+          {% if next_idx is not none %}<a class="next" href="/read/{{ book_id }}/{{ next_idx }}">下一章 <i class="bi bi-chevron-right"></i></a>{% else %}<span class="next disabled">下一章</span>{% endif %}
+        </nav>
+      </div>
+    </main>
+  </div>
+
+  <div class="settings" id="settings" aria-hidden="true">
+    <h3>阅读设置</h3>
+    <div class="setting-row">
+      <div class="setting-label"><span>字号大小</span><span class="setting-value" id="font-value">20 px</span></div>
+      <div class="font-scale"><span>A</span><input id="font-range" type="range" min="15" max="30" step="1" value="20"><span>A</span></div>
     </div>
+    <div class="setting-label"><span>字体</span></div>
+    <div class="font-tabs"><button class="font-tab active" data-category="all">全部（29）</button><button class="font-tab" data-category="cang">仓耳字库</button><button class="font-tab" data-category="fang">方正字库</button><button class="font-tab" data-category="other">其他</button></div>
+    <div class="font-options">
+      <button class="font-option active" data-font="system" data-category="other">系统字体</button><button class="font-option" data-font="cang04" data-category="cang">仓耳今楷04</button><button class="font-option" data-font="canghua" data-category="cang">仓耳华新</button>
+      <button class="font-option" data-font="sourceSong" data-category="other">思源宋体</button><button class="font-option" data-font="cang05" data-category="cang">仓耳今楷05</button><button class="font-option" data-font="jinghua" data-category="other">京华老宋体</button>
+      <button class="font-option" data-font="sourceHei" data-category="other">思源黑体</button><button class="font-option" data-font="cangxuan04" data-category="cang">仓耳玄三04</button><button class="font-option" data-font="hanyiLive" data-category="other">寒蝉活体</button>
+      <button class="font-option" data-font="fangSong" data-category="fang">方正宋三</button><button class="font-option" data-font="cangxuan05" data-category="cang">仓耳玄三05</button><button class="font-option" data-font="hanyiKong" data-category="other">汉仪空山楷</button>
+      <button class="font-option" data-font="fangYou" data-category="fang">方正悠宋</button><button class="font-option" data-font="cangyun04" data-category="cang">仓耳云黑04</button><button class="font-option" data-font="huiwen" data-category="other">汇文正楷</button>
+      <button class="font-option" data-font="fangHei" data-category="fang">方正兰亭黑</button><button class="font-option" data-font="cangyun05" data-category="cang">仓耳云黑05</button><button class="font-option" data-font="hanyiKai" data-category="other">寒蝉正楷体</button>
+      <button class="font-option" data-font="fangRound" data-category="fang">方正兰亭圆</button><button class="font-option" data-font="cangming04" data-category="cang">仓耳明楷04</button><button class="font-option" data-font="lxgw" data-category="other">霞鹜文楷</button>
+      <button class="font-option" data-font="fangKai" data-category="fang">方正盛世楷书</button><button class="font-option" data-font="cangming05" data-category="cang">仓耳明楷05</button><button class="font-option" data-font="aiKai" data-category="other">AI楷</button>
+      <button class="font-option" data-font="fangFang" data-category="fang">方正聚珍新仿</button><button class="font-option" data-font="cangzhuang" data-category="cang">仓耳状元楷</button><button class="font-option" data-font="cangyu" data-category="cang">仓耳玉楷</button>
+      <button class="font-option" data-font="fangOu" data-category="fang">方正欧蝶正楷</button><button class="font-option" data-font="canglan" data-category="cang">仓耳兰楷</button>
+    </div>
+  </div>
 
-    <!-- Sidebar Toggle -->
-    <button id="sidebar-toggle" title="切换目录">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-    </button>
-
-    <!-- SIDEBAR -->
-    <div id="sidebar">
-        <a href="/" class="nav-home">← 返回书库</a>
-        <div class="nav-header">{{ display_title }}</div>
-
-        <!-- Recursive Macro for TOC -->
-        {% macro render_toc(items) %}
-            <ul class="toc-list">
-            {% for item in items %}
-                <li class="toc-item">
-                    <!--
-                        Matching Logic:
-                        If the TOC item filename matches the current chapter filename, mark active.
-                        Ideally we match spine indices, but Reader 3 TOC maps to filenames.
-                        We use a simple hash matching logic here.
-                    -->
-                    {% set is_active = current_chapter.href == item.file_href %}
-
-                    <!--
-                       We need to find which linear chapter index (0, 1, 2) corresponds
-                       to this TOC entry file.
-                       Since that's hard to calculate in Jinja, we just link to the
-                       file anchor. BUT, to make our linear navigation work, we
-                       rely on the fact that the user is currently reading 'chapter_index'.
-
-                       Ideally, clicking a TOC link should find the 'index' of that file.
-                       For simplicity in this version: We link to the 'href' (filename)
-                       and let JavaScript or Backend handle it?
-
-                       Actually, let's just link to the file. The browser interprets #anchors.
-                       However, our router uses /read/book/INDEX.
-
-                       SIMPLE FIX: We won't link the TOC to the route index in this simple version
-                       unless we build a map. We will visually show structure,
-                       but rely on "Previous/Next" for linear reading.
-
-                       BETTER FIX: Use JavaScript to match filenames.
-                    -->
-                    <a href="#" onclick='findAndGo({{ item.file_href|tojson }}, {{ item.title|tojson }}); return false;'
-                       class="toc-link {% if is_active %}active{% endif %}">
-                        {{ item.title }}
-                    </a>
-
-                    {% if item.children %}
-                        {{ render_toc(item.children) }}
-                    {% endif %}
-                </li>
-            {% endfor %}
-            </ul>
-        {% endmacro %}
-
+  <div class="sheet-backdrop" id="backdrop"></div>
+  <aside class="side-sheet" id="toc-sheet" aria-hidden="true">
+    <div class="sheet-head"><strong>目录</strong><button class="close-sheet" aria-label="关闭"><i class="bi bi-x-lg"></i></button></div>
+    <div class="toc-search">
+      <div class="toc-search-box"><i class="bi bi-search" aria-hidden="true"></i><input id="toc-search-input" type="search" autocomplete="off" placeholder="搜索目录" aria-label="搜索目录"><button class="toc-search-clear" id="toc-search-clear" type="button" aria-label="清除搜索" hidden><i class="bi bi-x-circle-fill"></i></button></div>
+      <div class="toc-search-meta" id="toc-search-meta" aria-live="polite" hidden></div>
+    </div>
+    <div class="toc-body">
+      <div id="toc-default">
+        <a class="toc-home" href="/"><i class="bi bi-arrow-left"></i> 返回书架</a>
+        {% macro render_toc(items) %}<ul class="toc-list">{% for item in items %}{% set is_active = current_chapter.href == item.file_href %}<li class="toc-item"><a href="#" onclick='findAndGo({{ item.file_href|tojson }}, {{ item.title|tojson }});return false' class="toc-link{% if is_active %} active{% endif %}">{{ item.title }}</a>{% if item.children %}{{ render_toc(item.children) }}{% endif %}</li>{% endfor %}</ul>{% endmacro %}
         {{ render_toc(book.toc) }}
+      </div>
+      <div class="toc-search-results" id="toc-search-results" hidden></div>
+      <div class="toc-empty" id="toc-empty" hidden>没有找到相关章节</div>
     </div>
+  </aside>
 
-    <!-- MAIN CONTENT -->
-    <div id="main">
-        <div class="content-container">
-            <div class="book-content">
-                {{ current_chapter.content | safe }}
-            </div>
-
-            <div class="chapter-nav">
-                {% if prev_idx is not none %}
-                    <a href="/read/{{ book_id }}/{{ prev_idx }}" class="nav-btn">← 上一章</a>
-                {% else %}
-                    <span class="nav-btn disabled">← 上一章</span>
-                {% endif %}
-
-                <span style="color: var(--muted); padding: 10px;">
-                    第 {{ chapter_index + 1 }} / {{ book.spine|length }} 章
-                </span>
-
-                {% if next_idx is not none %}
-                    <a href="/read/{{ book_id }}/{{ next_idx }}" class="nav-btn">下一章 →</a>
-                {% else %}
-                    <span class="nav-btn disabled">下一章 →</span>
-                {% endif %}
-            </div>
+  <aside class="side-sheet" id="ai-sheet" aria-hidden="true">
+    <div class="ai-resizer" id="ai-resizer" role="separator" tabindex="0" aria-label="调整 AI 问书宽度" aria-orientation="vertical" aria-valuemin="320" aria-valuemax="900"></div>
+    <div class="sheet-head"><strong>A<sup>i</sup> 问书</strong><div class="ai-head-actions"><button class="ai-head-action" id="ai-settings-toggle" type="button" aria-label="AI 设置" aria-controls="ai-settings" aria-expanded="false"><i class="bi bi-gear"></i></button><button class="close-sheet" aria-label="关闭"><i class="bi bi-x-lg"></i></button></div></div>
+    <button class="scope-summary" id="scope-summary" type="button" aria-expanded="false" aria-controls="scope-config">
+      <span class="scope-summary-label"><i class="bi bi-bookmark-check"></i> 问书范围</span><span class="scope-summary-spacer"></span>
+      <span class="analysis-mode" id="scope-mode">当前章节</span><i class="bi bi-chevron-down analysis-chevron" aria-hidden="true"></i>
+    </button>
+    <section class="scope-config" id="scope-config" hidden>
+      <p class="scope-detail" id="scope-preview"></p>
+      <p class="analysis-config-note">限制 AI 只能使用所选范围内的原文。指定章节最多 {{ max_ai_selected_chapters }} 节；范围越聚焦，回答通常越准确。</p>
+      <div class="scope-options" role="radiogroup" aria-label="问书范围">
+        <label class="scope-option"><input type="radio" name="ai-scope" value="current">当前章节</label>
+        <label class="scope-option"><input type="radio" name="ai-scope" value="selected">指定章节</label>
+        <label class="scope-option"><input type="radio" name="ai-scope" value="book">全书检索</label>
+      </div>
+      <div class="scope-picker" id="scope-picker" hidden>
+        <input class="scope-filter" id="scope-filter" type="search" autocomplete="off" placeholder="筛选章节" aria-label="筛选章节">
+        <div class="scope-picker-actions"><button type="button" id="scope-current-only">仅选本章</button><button type="button" id="scope-clear">清空</button><span id="scope-count"></span></div>
+        <div class="scope-chapter-list" id="scope-chapter-list">
+          {% for chapter in book.spine %}<label class="scope-chapter" data-search="{{ loop.index }} {{ chapter.title or '未命名章节' }}"><input type="checkbox" value="{{ loop.index0 }}"><span><b>第 {{ loop.index }} 节{% if loop.index0 == chapter_index %} · 当前{% endif %}</b>{{ chapter.title or '未命名章节' }}</span></label>{% endfor %}
         </div>
+      </div>
+      <button class="scope-save" id="scope-save" type="button">应用问书范围</button>
+    </section>
+    <div class="ai-body">
+      <div class="messages" id="messages">
+        <div class="ai-empty" id="ai-empty"></div>
+      </div>
+      <div class="ai-footer">
+        <div class="ask-box"><textarea id="ask-input" rows="1" maxlength="2000" placeholder="向当前问书范围提问…"></textarea><button id="ask-send" class="ask-send" aria-label="发送" {% if not ai_enabled %}title="需要配置 API Key"{% endif %}><i class="bi bi-arrow-up"></i></button></div>
+        <div class="ai-note">AI 可能犯错，请结合原文判断{% if not ai_enabled %} · 当前服务未检测到 API Key{% endif %}</div>
+      </div>
     </div>
-
-    <!-- Floating Action Button -->
-    <div id="reader3-fab" title="左键：复制章节 · 右键：管理模板">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-        </svg>
-    </div>
-
-    <!-- Template Panel Overlay -->
-    <div id="r3-overlay">
-        <!-- Tab Headers -->
-        <div class="r3-panel" id="r3-panel-tabs">
-            <div class="r3-panel-header">
-                <div class="r3-tabs">
-                    <button class="r3-tab active" data-tab="templates">模板管理</button>
-                    <button class="r3-tab" data-tab="batch-copy">连续复制</button>
-                </div>
-                <button class="r3-btn r3-btn-secondary r3-btn-sm" id="r3-close-panel">关闭</button>
-            </div>
-
-            <!-- Templates Tab -->
-            <div id="r3-tab-templates">
-                <div class="r3-panel-body" id="r3-tpl-list"></div>
-                <div class="r3-panel-footer">
-                    <button class="r3-btn r3-btn-primary" id="r3-add-tpl">+ 新建模板</button>
-                </div>
-            </div>
-
-            <!-- Batch Copy Tab -->
-            <div id="r3-tab-batch-copy" style="display:none;">
-                <div class="r3-panel-body">
-                    <div class="r3-form-group">
-                        <label class="r3-form-label">选择章节范围</label>
-                        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
-                            <span style="font-size:13px;color:var(--muted);">第</span>
-                            <input class="r3-form-input" type="number" id="r3-batch-start" min="1" style="width:70px;text-align:center;" value="{{ chapter_index + 1 }}">
-                            <span style="font-size:13px;color:var(--muted);">节 到 第</span>
-                            <input class="r3-form-input" type="number" id="r3-batch-end" min="1" style="width:70px;text-align:center;" value="{{ chapter_index + 1 }}">
-                            <span style="font-size:13px;color:var(--muted);">节（共 {{ book.spine|length }} 节）</span>
-                        </div>
-                    </div>
-                    <div class="r3-form-group">
-                        <label class="r3-form-label">章节预览</label>
-                        <div id="r3-batch-preview" style="font-size:13px;color:var(--muted);max-height:120px;overflow-y:auto;background:#f5f5f7;border-radius:8px;padding:10px;"></div>
-                    </div>
-                    <div id="r3-batch-status" style="font-size:13px;color:var(--muted);text-align:center;padding:4px 0;"></div>
-                </div>
-                <div class="r3-panel-footer">
-                    <button class="r3-btn r3-btn-primary" id="r3-batch-copy-btn">复制选中章节</button>
-                </div>
-            </div>
+    <section class="ai-settings" id="ai-settings" hidden>
+      <div class="ai-settings-head"><strong>AI 设置</strong><button class="ai-settings-close" id="ai-settings-close" type="button" aria-label="关闭 AI 设置"><i class="bi bi-x-lg"></i></button></div>
+      <div class="ai-settings-body">
+        <div class="analysis-config" id="analysis-config">
+          <h3 class="analysis-config-title"><i class="bi bi-sliders2"></i> 阅读分析提示词 <span class="analysis-mode" id="analysis-mode">默认</span></h3>
+          <p class="analysis-config-note">编辑 AI 分析这本书的方法。自定义内容会替换默认分析方法；基于原文、不编造等安全边界始终保留。配置仅保存在当前浏览器。</p>
+          <label for="analysis-prompt" class="visually-hidden">阅读分析提示词</label>
+          <textarea class="analysis-prompt" id="analysis-prompt" maxlength="{{ max_reading_analysis_prompt_chars }}"></textarea>
+          <div class="analysis-config-actions"><span class="analysis-count" id="analysis-count"></span><button class="prompt-action" id="analysis-reset" type="button">恢复默认</button><button class="prompt-action primary" id="analysis-save" type="button">保存配置</button></div>
         </div>
-
-        <!-- Edit View -->
-        <div class="r3-panel" id="r3-panel-edit" style="display:none;">
-            <div class="r3-panel-header">
-                <span id="r3-edit-title">新建模板</span>
-            </div>
-            <div class="r3-panel-body">
-                <div class="r3-form-group">
-                    <label class="r3-form-label">模板名称</label>
-                    <input class="r3-form-input" type="text" id="r3-edit-name" placeholder="例如：快速摘要">
-                </div>
-                <div class="r3-form-group">
-                    <label class="r3-form-label">提示词模板</label>
-                    <textarea class="r3-form-textarea" id="r3-edit-tpl" placeholder="编写提示词，使用 &#123;&#123;content&#125;&#125; 作为章节内容占位符"></textarea>
-                    <div class="r3-form-hint">使用 <code>&#123;&#123;content&#125;&#125;</code> 作为章节内容占位符</div>
-                </div>
-            </div>
-            <div class="r3-panel-footer">
-                <button class="r3-btn r3-btn-secondary" id="r3-edit-cancel">取消</button>
-                <button class="r3-btn r3-btn-primary" id="r3-edit-save">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Helper to map TOC filenames to Spine Indices
-        // Pass the spine data from python to JS
-        const spineMap = {
-            {% for ch in book.spine %}
-            "{{ ch.href }}": {{ ch.order }},
-            {% endfor %}
-        };
-
-        const currentChapterIndex = {{ chapter_index }};
-
-        function normalizeTocText(text) {
-            return String(text || '').replace(/\s+/g, '');
-        }
-
-        function scrollToTarget(target) {
-            if (!target) return false;
-            target.scrollIntoView({ block: 'start', behavior: 'auto' });
-            return true;
-        }
-
-        function scrollToAnchor(anchor) {
-            if (!anchor) return false;
-
-            var target = document.getElementById(anchor);
-            if (!target) {
-                var namedTargets = document.getElementsByName(anchor);
-                target = namedTargets.length ? namedTargets[0] : null;
-            }
-
-            if (!target) return false;
-
-            scrollToTarget(target);
-            if (window.history && window.history.replaceState) {
-                window.history.replaceState(null, '', '#' + encodeURIComponent(anchor));
-            }
-            return true;
-        }
-
-        function scrollToHeadingByTitle(title) {
-            var normalizedTitle = normalizeTocText(title);
-            if (!normalizedTitle) return false;
-
-            var headings = document.querySelectorAll('.book-content h1, .book-content h2, .book-content h3, .book-content h4, .book-content h5, .book-content h6');
-            for (var i = 0; i < headings.length; i++) {
-                if (normalizeTocText(headings[i].textContent) === normalizedTitle) {
-                    return scrollToTarget(headings[i]);
-                }
-            }
-
-            return false;
-        }
-
-        function findAndGo(filename, title) {
-            // The TOC usually has specific filenames e.g. "text/part001.html"
-            // Sometimes it has anchors "text/part001.html#header"
-            // We keep the anchor so subsection links can scroll inside a chapter.
-            const cleanFile = filename.split('#')[0];
-            const anchor = filename.split('#').slice(1).join('#');
-
-            const idx = spineMap[cleanFile];
-
-            if (idx !== undefined) {
-                let url = "/read/{{ book_id }}/" + idx;
-                if (anchor && idx === currentChapterIndex && scrollToAnchor(anchor)) {
-                    return;
-                }
-                if (!anchor && idx === currentChapterIndex && scrollToHeadingByTitle(title)) {
-                    return;
-                }
-                if (anchor) {
-                    url += "#" + encodeURIComponent(anchor);
-                } else if (title) {
-                    url += "?toc_title=" + encodeURIComponent(title);
-                }
-                window.location.href = url;
-            } else {
-                console.log("Could not find index for", filename);
-            }
-        }
-
-        (function() {
-            function scrollToCurrentHash() {
-                if (!window.location.hash) return;
-                var anchor = decodeURIComponent(window.location.hash.slice(1));
-                window.setTimeout(function() {
-                    scrollToAnchor(anchor);
-                }, 0);
-            }
-
-            function scrollToCurrentTitle() {
-                var title = new URLSearchParams(window.location.search).get('toc_title');
-                if (!title) return;
-                window.setTimeout(function() {
-                    scrollToHeadingByTitle(title);
-                }, 0);
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function() {
-                    scrollToCurrentHash();
-                    scrollToCurrentTitle();
-                });
-            } else {
-                scrollToCurrentHash();
-                scrollToCurrentTitle();
-            }
-        })();
-
-        // ── Keyboard Navigation ──
-        (function() {
-            var prevUrl = {% if prev_idx is not none %}"/read/{{ book_id }}/{{ prev_idx }}"{% else %}null{% endif %};
-            var nextUrl = {% if next_idx is not none %}"/read/{{ book_id }}/{{ next_idx }}"{% else %}null{% endif %};
-            document.addEventListener('keydown', function(e) {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-                if (e.key === 'ArrowLeft' && prevUrl) window.location.href = prevUrl;
-                else if (e.key === 'ArrowRight' && nextUrl) window.location.href = nextUrl;
-            });
-        })();
-
-        // ── Sidebar Toggle & Scroll ──
-        (function() {
-            var sidebar = document.getElementById('sidebar');
-            var toggle = document.getElementById('sidebar-toggle');
-            if (!sidebar || !toggle) return;
-
-            toggle.addEventListener('click', function() {
-                sidebar.classList.toggle('collapsed');
-                localStorage.setItem('reader3_sidebar', sidebar.classList.contains('collapsed') ? 'collapsed' : 'open');
-            });
-
-            if (localStorage.getItem('reader3_sidebar') === 'collapsed') {
-                sidebar.classList.add('collapsed');
-            }
-
-            var active = sidebar.querySelector('a.toc-link.active');
-            if (active) active.scrollIntoView({ block: 'center', behavior: 'instant' });
-        })();
-
-        // ── FAB + Template System ──
-        (function() {
-            var CONTENT_TOKEN = '{' + '{content}' + '}';
-            var CURRENT_CHAPTER_TEXT = {{ current_chapter.text|tojson }};
-
-            // ── Built-in templates ──
-            var BUILTIN_TEMPLATES = [
-                {
-                    id: 'builtin-default',
-                    name: '默认（阅读分析）',
-                    builtin: true,
-                    template: [
-                        '## 角色设定',
-                        '',
-                        '你是一个严谨、有洞察力、善于联想的读书伙伴。你的思维风格以INTJ为主——擅长拆解论证结构、追踪隐含前提、构建跨领域类比；但同时具备INFJ的直觉感受力——能捕捉到文本中意象、修辞和情感节奏所传递的信息。',
-                        '',
-                        '既不故作高深，也不刻意通俗，每一句话都要言之有物。',
-                        '',
-                        '我会给你一段章节内容。请你帮助我理解这章，不只是总结表面内容，也要帮我发现我可能忽略的结构、暗线、隐含前提和跨领域联想。',
-                        '',
-                        '---',
-                        '## 输出结构',
-                        '',
-                        '### 1. 本章一句话主旨',
-                        '使用大白话说明这一章真正想表达什么。不是概括内容，而是提炼论点。',
-                        '',
-                        '### 2. 章节结构梳理',
-                        '用条目梳理本章的展开顺序、关键段落功能和论证链。',
-                        '',
-                        '### 3. 关键概念与重要句子',
-                        '提取本章最值得记住的3-5个概念、判断或表达，并说明其功能与重要性。',
-                        '',
-                        '### 4. 我可能忽略的东西',
-                        '分析隐含前提、反复出现的暗线、容易被跳过的细节、用词选择的传递信息。',
-                        '',
-                        '### 5. 深度联想',
-                        '基于本章内容，找到与之形成"结构性对应"的跨领域案例，至少展开3-4句话。',
-                        '',
-                        '### 6. 反向思考',
-                        '提出本章可能存在的局限、反例、盲点，至少包含一个具体反例。',
-                        '',
-                        '### 7. 给我的思考问题（5个，分层提出）',
-                        '按事实核查、迁移应用、假设推演、写作激发、对话解释各出一个。',
-                        '',
-                        '---',
-                        '## 约束',
-                        '- 不要编造原文没有的信息',
-                        '- 推测请明确标注',
-                        '- 保持清晰具体，不写空泛感悟',
-                        '',
-                        '---',
-                        '## 章节内容',
-                        '',
-                        CONTENT_TOKEN
-                    ].join('\n')
-                },
-                {
-                    id: 'builtin-raw',
-                    name: '原文直出',
-                    builtin: true,
-                    template: CONTENT_TOKEN
-                }
-            ];
-
-            // ── State ──
-            var customTemplates = [];
-            var selectedId = 'builtin-default';
-            var editingId = null;
-
-            // ── DOM ──
-            var fab = document.getElementById('reader3-fab');
-            var overlay = document.getElementById('r3-overlay');
-            var panelTabs = document.getElementById('r3-panel-tabs');
-            var panelEdit = document.getElementById('r3-panel-edit');
-            var tplListEl = document.getElementById('r3-tpl-list');
-            var editNameEl = document.getElementById('r3-edit-name');
-            var editTplEl = document.getElementById('r3-edit-tpl');
-            var editTitleEl = document.getElementById('r3-edit-title');
-            var batchStartEl = document.getElementById('r3-batch-start');
-            var batchEndEl = document.getElementById('r3-batch-end');
-            var batchPreviewEl = document.getElementById('r3-batch-preview');
-            var batchStatusEl = document.getElementById('r3-batch-status');
-            var batchCopyBtn = document.getElementById('r3-batch-copy-btn');
-            if (!fab || !overlay) return;
-
-            var TOTAL_SECTIONS = {{ book.spine|length }};
-            var BOOK_ID = '{{ book_id }}';
-            var CURRENT_IDX = {{ chapter_index }};
-
-            // ── Storage ──
-            var STORAGE_KEY = 'reader3_templates';
-            var SELECTED_KEY = 'reader3_selected_tpl';
-
-            function loadState() {
-                try {
-                    var raw = localStorage.getItem(STORAGE_KEY);
-                    customTemplates = raw ? JSON.parse(raw) : [];
-                    selectedId = localStorage.getItem(SELECTED_KEY) || 'builtin-default';
-                } catch(e) {
-                    customTemplates = [];
-                    selectedId = 'builtin-default';
-                }
-            }
-
-            function saveState() {
-                try {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(customTemplates));
-                    localStorage.setItem(SELECTED_KEY, selectedId);
-                } catch(e) {}
-            }
-
-            function getAllTemplates() {
-                return BUILTIN_TEMPLATES.concat(customTemplates);
-            }
-
-            function getTemplate(id) {
-                return getAllTemplates().find(function(t) { return t.id === id; }) || BUILTIN_TEMPLATES[0];
-            }
-
-            // ── Build content with template ──
-            function buildContent(text) {
-                var tmpl = getTemplate(selectedId);
-                return tmpl.template.replace(/\{\{content\}\}/g, text);
-            }
-
-            // ── FAB click: copy with template ──
-            fab.addEventListener('click', function(e) {
-                if (fab.classList.contains('r3-loading')) return;
-                fab.classList.add('r3-loading');
-
-                var contentEl = document.querySelector('.book-content');
-                if (!contentEl) {
-                    showToast('未找到章节内容', 3000, true);
-                    fab.classList.remove('r3-loading');
-                    return;
-                }
-
-                var text = String(CURRENT_CHAPTER_TEXT || contentEl.innerText || contentEl.textContent || '').trim();
-                if (!text) {
-                    showToast('章节内容为空', 3000, true);
-                    fab.classList.remove('r3-loading');
-                    return;
-                }
-
-                var result = buildContent(text);
-                var charCount = result.length;
-
-                copyToClipboard(result).then(function(ok) {
-                    fab.classList.remove('r3-loading');
-                    if (ok) {
-                        var tmpl = getTemplate(selectedId);
-                        showToast('已复制 ' + charCount + ' 字符（' + tmpl.name + '）');
-                    } else {
-                        showToast('复制失败，请手动复制', 3000, true);
-                    }
-                });
-            });
-
-            // ── FAB right-click: open panel ──
-            fab.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                openPanel();
-            });
-
-            // ── Panel ──
-            function openPanel() {
-                renderTemplateList();
-                showView('list');
-                overlay.classList.add('r3-show');
-            }
-
-            function closePanel() {
-                overlay.classList.remove('r3-show');
-            }
-
-            function showView(view) {
-                panelTabs.style.display = (view === 'list' || view === 'batch') ? '' : 'none';
-                panelEdit.style.display = view === 'edit' ? '' : 'none';
-                document.getElementById('r3-tab-templates').style.display = view === 'list' ? '' : 'none';
-                document.getElementById('r3-tab-batch-copy').style.display = view === 'batch' ? '' : 'none';
-                if (view === 'list' || view === 'batch') {
-                    var tabs = panelTabs.querySelectorAll('.r3-tab');
-                    tabs.forEach(function(t) {
-                        t.classList.toggle('active', (view === 'list' && t.dataset.tab === 'templates') || (view === 'batch' && t.dataset.tab === 'batch-copy'));
-                    });
-                }
-            }
-
-            function renderTemplateList() {
-                tplListEl.innerHTML = '';
-                getAllTemplates().forEach(function(t) {
-                    var item = document.createElement('div');
-                    item.className = 'r3-tpl-item' + (t.id === selectedId ? ' r3-active' : '');
-
-                    var info = document.createElement('div');
-                    info.className = 'r3-tpl-info';
-                    info.innerHTML = '<div class="r3-tpl-name">' + escapeHtml(t.name)
-                        + (t.builtin ? '<span class="r3-tpl-badge">内置</span>' : '')
-                        + (t.id === selectedId ? '<span class="r3-tpl-badge" style="background:#eaf3ff;color:#0071e3;">当前</span>' : '')
-                        + '</div>';
-
-                    // Click name to select
-                    info.style.cursor = 'pointer';
-                    info.addEventListener('click', function() {
-                        selectedId = t.id;
-                        saveState();
-                        closePanel();
-                        showToast('已切换到：' + t.name);
-                    });
-
-                    var actions = document.createElement('div');
-                    actions.className = 'r3-tpl-actions';
-
-                    var editBtn = document.createElement('button');
-                    editBtn.className = 'r3-btn r3-btn-secondary r3-btn-sm';
-                    editBtn.textContent = '编辑';
-                    editBtn.addEventListener('click', function(ev) {
-                        ev.stopPropagation();
-                        openEdit(t);
-                    });
-                    actions.appendChild(editBtn);
-
-                    if (!t.builtin) {
-                        var delBtn = document.createElement('button');
-                        delBtn.className = 'r3-btn r3-btn-danger r3-btn-sm';
-                        delBtn.textContent = '删除';
-                        delBtn.addEventListener('click', function(ev) {
-                            ev.stopPropagation();
-                            if (confirm('确定删除模板"' + t.name +'"？')) {
-                                customTemplates = customTemplates.filter(function(ct) { return ct.id !== t.id; });
-                                if (selectedId === t.id) selectedId = 'builtin-default';
-                                saveState();
-                                renderTemplateList();
-                            }
-                        });
-                        actions.appendChild(delBtn);
-                    }
-
-                    item.appendChild(info);
-                    item.appendChild(actions);
-                    tplListEl.appendChild(item);
-                });
-            }
-
-            function openEdit(tpl) {
-                editingId = tpl ? tpl.id : null;
-                editTitleEl.textContent = tpl ? '编辑模板' : '新建模板';
-                editNameEl.value = tpl ? tpl.name : '';
-                editTplEl.value = tpl ? tpl.template : '';
-                showView('edit');
-            }
-
-            // ── Panel events ──
-            document.getElementById('r3-close-panel').addEventListener('click', closePanel);
-            overlay.addEventListener('click', function(e) {
-                if (e.target === overlay) closePanel();
-            });
-
-            // ── Tab switching ──
-            panelTabs.querySelectorAll('.r3-tab').forEach(function(tab) {
-                tab.addEventListener('click', function() {
-                    if (tab.dataset.tab === 'templates') {
-                        renderTemplateList();
-                        showView('list');
-                    } else if (tab.dataset.tab === 'batch-copy') {
-                        showView('batch');
-                        updateBatchPreview();
-                    }
-                });
-            });
-
-            // ── Batch Copy ──
-            function clampRange() {
-                var s = parseInt(batchStartEl.value) || 1;
-                var e = parseInt(batchEndEl.value) || 1;
-                s = Math.max(1, Math.min(TOTAL_SECTIONS, s));
-                e = Math.max(1, Math.min(TOTAL_SECTIONS, e));
-                if (s > e) { var tmp = s; s = e; e = tmp; }
-                batchStartEl.value = s;
-                batchEndEl.value = e;
-                return { start: s, end: e };
-            }
-
-            function updateBatchPreview() {
-                var range = clampRange();
-                var count = range.end - range.start + 1;
-                batchStatusEl.textContent = '选中 ' + count + ' 节，准备就绪';
-                batchStatusEl.style.color = '#6e6e73';
-
-                var html = '';
-                for (var i = range.start; i <= range.end; i++) {
-                    var cls = i === CURRENT_IDX + 1 ? ' style="color:#0071e3;font-weight:600;"' : '';
-                    html += '<div' + cls + '>第 ' + i + ' 节</div>';
-                }
-                batchPreviewEl.innerHTML = html;
-            }
-
-            batchStartEl.addEventListener('input', updateBatchPreview);
-            batchEndEl.addEventListener('input', updateBatchPreview);
-
-            batchCopyBtn.addEventListener('click', function() {
-                if (batchCopyBtn.disabled) return;
-                var range = clampRange();
-                var count = range.end - range.start + 1;
-
-                batchCopyBtn.disabled = true;
-                batchCopyBtn.textContent = '加载中...';
-                batchStatusEl.textContent = '正在获取第 ' + range.start + ' 节...';
-                batchStatusEl.style.color = '#0071e3';
-
-                var texts = [];
-                var idx = range.start;
-
-                function fetchNext() {
-                    if (idx > range.end) {
-                        finishBatch(texts, range);
-                        return;
-                    }
-                    batchStatusEl.textContent = '正在获取第 ' + idx + ' / ' + range.end + ' 节...';
-                    fetch('/read/' + BOOK_ID + '/' + (idx - 1))
-                        .then(function(r) { return r.text(); })
-                        .then(function(html) {
-                            var parser = new DOMParser();
-                            var doc = parser.parseFromString(html, 'text/html');
-                            var el = doc.querySelector('.book-content');
-                            var text = el ? (el.innerText || el.textContent || '').trim() : '';
-                            if (text) texts.push(text);
-                            idx++;
-                            fetchNext();
-                        })
-                        .catch(function(err) {
-                            batchCopyBtn.disabled = false;
-                            batchCopyBtn.textContent = '复制选中章节';
-                            batchStatusEl.textContent = '获取失败：' + err.message;
-                            batchStatusEl.style.color = '#d70015';
-                        });
-                }
-
-                fetchNext();
-            });
-
-            function finishBatch(texts, range) {
-                if (!texts.length) {
-                    batchCopyBtn.disabled = false;
-                    batchCopyBtn.textContent = '复制选中章节';
-                    batchStatusEl.textContent = '未获取到任何内容';
-                    batchStatusEl.style.color = '#d70015';
-                    return;
-                }
-                var combined = texts.join('\n\n---\n\n');
-                var result = buildContent(combined);
-                copyToClipboard(result).then(function(ok) {
-                    batchCopyBtn.disabled = false;
-                    batchCopyBtn.textContent = '复制选中章节';
-                    if (ok) {
-                        var tmpl = getTemplate(selectedId);
-                        batchStatusEl.textContent = '已复制 ' + result.length + ' 字符（' + (range.end - range.start + 1) + ' 节，' + tmpl.name + '）';
-                        batchStatusEl.style.color = '#248a3d';
-                        showToast('已复制 ' + result.length + ' 字符');
-                    } else {
-                        batchStatusEl.textContent = '复制失败';
-                        batchStatusEl.style.color = '#d70015';
-                        showToast('复制失败，请手动复制', 3000, true);
-                    }
-                });
-            }
-
-            document.getElementById('r3-add-tpl').addEventListener('click', function() {
-                openEdit(null);
-            });
-
-            document.getElementById('r3-edit-cancel').addEventListener('click', function() {
-                renderTemplateList();
-                showView('list');
-            });
-
-            document.getElementById('r3-edit-save').addEventListener('click', function() {
-                var name = editNameEl.value.trim();
-                var tmpl = editTplEl.value.trim();
-                if (!name) { showToast('请输入模板名称', 2500, true); return; }
-                if (!tmpl) { showToast('请输入提示词模板', 2500, true); return; }
-                if (!tmpl.indexOf(CONTENT_TOKEN)) {
-                    // Allow templates that start with the content token.
-                }
-                if (tmpl.indexOf(CONTENT_TOKEN) === -1) {
-                    showToast('模板中必须包含 ' + CONTENT_TOKEN + ' 占位符', 3000, true);
-                    return;
-                }
-
-                var isBuiltin = editingId && editingId.indexOf('builtin-') === 0;
-
-                if (isBuiltin) {
-                    // Override builtin: save as custom with same name
-                    var existing = customTemplates.find(function(ct) { return ct.id === 'override-' + editingId; });
-                    if (existing) {
-                        existing.template = tmpl;
-                    } else {
-                        customTemplates.push({
-                            id: 'override-' + editingId,
-                            name: name,
-                            builtin: false,
-                            template: tmpl
-                        });
-                    }
-                    // If currently selected is this builtin, switch to override
-                    if (selectedId === editingId) {
-                        selectedId = 'override-' + editingId;
-                    }
-                } else if (editingId) {
-                    // Edit existing custom
-                    var idx = customTemplates.findIndex(function(ct) { return ct.id === editingId; });
-                    if (idx !== -1) {
-                        customTemplates[idx].name = name;
-                        customTemplates[idx].template = tmpl;
-                    }
-                } else {
-                    // New template
-                    customTemplates.push({
-                        id: 'custom-' + Date.now(),
-                        name: name,
-                        builtin: false,
-                        template: tmpl
-                    });
-                }
-
-                saveState();
-                renderTemplateList();
-                showView('list');
-                showToast('模板已保存');
-            });
-
-            // ── Clipboard ──
-            function copyToClipboard(text) {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    return navigator.clipboard.writeText(text).then(function() {
-                        return true;
-                    }).catch(function() {
-                        return fallbackCopy(text);
-                    });
-                }
-                return Promise.resolve(fallbackCopy(text));
-            }
-
-            function fallbackCopy(text) {
-                var ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.cssText = 'position:fixed;left:-9999px;opacity:0';
-                document.body.appendChild(ta);
-                ta.focus();
-                ta.select();
-                var ok = false;
-                try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
-                ta.remove();
-                return ok;
-            }
-
-            // ── Toast ──
-            function showToast(message, duration, isError) {
-                duration = duration || 2500;
-                var existing = document.getElementById('reader3-toast');
-                if (existing) existing.remove();
-
-                var toast = document.createElement('div');
-                toast.id = 'reader3-toast';
-                if (isError) toast.className = 'r3-toast-error';
-                toast.textContent = message;
-                document.body.appendChild(toast);
-
-                requestAnimationFrame(function() { toast.classList.add('r3-toast-show'); });
-                setTimeout(function() {
-                    toast.classList.remove('r3-toast-show');
-                    setTimeout(function() { toast.remove(); }, 300);
-                }, duration);
-            }
-
-            function escapeHtml(s) {
-                var d = document.createElement('div');
-                d.textContent = s;
-                return d.innerHTML;
-            }
-
-            // ── Init ──
-            loadState();
-        })();
-    </script>
+      </div>
+    </section>
+  </aside>
+  <div class="reader-toast" id="reader-toast" role="status" aria-live="polite"></div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+</div>
+
+<script>
+  const BOOK_ID = {{ book_id|tojson }};
+  const CHAPTER_INDEX = {{ chapter_index }};
+  const AI_ENABLED = {{ ai_enabled|tojson }};
+  const DEFAULT_READING_ANALYSIS_PROMPT = {{ reading_analysis_prompt|tojson }};
+  const MAX_READING_ANALYSIS_PROMPT_CHARS = {{ max_reading_analysis_prompt_chars }};
+  const MAX_AI_SELECTED_CHAPTERS = {{ max_ai_selected_chapters }};
+  const AI_CHAPTERS = [{% for chapter in book.spine %}{index:{{ loop.index0 }},title:{{ (chapter.title or '未命名章节')|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}];
+  const spineLookup = {
+    {% for ch in book.spine %}{{ ch.href|tojson }}: {{ ch.order }},{% endfor %}
+  };
+
+  function normalizeText(text){return String(text||'').replace(/\s+/g,'')}
+  function scrollToAnchor(anchor){
+    if(!anchor)return false;
+    const target=document.getElementById(anchor)||document.getElementsByName(anchor)[0];
+    if(!target)return false; target.scrollIntoView({block:'start'}); history.replaceState(null,'','#'+encodeURIComponent(anchor)); return true;
+  }
+  function scrollToHeading(title){
+    const wanted=normalizeText(title); if(!wanted)return false;
+    const heading=[...document.querySelectorAll('.book-content h1,.book-content h2,.book-content h3,.book-content h4')].find(el=>normalizeText(el.textContent)===wanted);
+    if(!heading)return false; heading.scrollIntoView({block:'start'}); return true;
+  }
+  function scrollToSearchText(query){
+    const wanted=String(query||'').trim().toLowerCase();if(!wanted)return false;const content=document.querySelector('.book-content'),walker=document.createTreeWalker(content,NodeFilter.SHOW_TEXT);
+    let node;while((node=walker.nextNode())){const index=node.data.toLowerCase().indexOf(wanted);if(index<0)continue;const range=document.createRange();range.setStart(node,index);range.setEnd(node,index+wanted.length);const mark=document.createElement('mark');mark.className='search-result-mark';range.surroundContents(mark);mark.scrollIntoView({block:'center'});return true}return false;
+  }
+  function findAndGo(filename,title){
+    const parts=filename.split('#'), idx=spineLookup[parts[0]], anchor=parts.slice(1).join('#'); if(idx===undefined)return;
+    if(idx===CHAPTER_INDEX&&((anchor&&scrollToAnchor(anchor))||(!anchor&&scrollToHeading(title)))){closeSheets();return}
+    location.href='/read/'+encodeURIComponent(BOOK_ID)+'/'+idx+(anchor?'#'+encodeURIComponent(anchor):title?'?toc_title='+encodeURIComponent(title):'');
+  }
+
+  const root=document.documentElement,app=document.getElementById('reader-app'),main=document.getElementById('main');
+  const AI_PANEL_WIDTH_KEY='booklens-ai-panel-width-v1',aiResizer=document.getElementById('ai-resizer');
+  let aiPanelWidth,preferredAiPanelWidth;
+  function defaultAiPanelWidth(){return window.innerWidth<1200?360:400}
+  function maxAiPanelWidth(){return Math.max(320,Math.min(900,window.innerWidth-360))}
+  function clampAiPanelWidth(width){return Math.round(Math.min(maxAiPanelWidth(),Math.max(320,Number(width)||defaultAiPanelWidth())))}
+  function applyAiPanelWidth(){aiPanelWidth=clampAiPanelWidth(preferredAiPanelWidth);root.style.setProperty('--ai-panel-width',aiPanelWidth+'px');aiResizer.setAttribute('aria-valuenow',String(aiPanelWidth));aiResizer.setAttribute('aria-valuemax',String(maxAiPanelWidth()))}
+  function setAiPanelWidth(width,persist=false){preferredAiPanelWidth=Math.round(Math.min(900,Math.max(320,Number(width)||defaultAiPanelWidth())));applyAiPanelWidth();if(persist){try{localStorage.setItem(AI_PANEL_WIDTH_KEY,String(preferredAiPanelWidth))}catch(e){}}}
+  let savedAiPanelWidth;try{savedAiPanelWidth=Number(localStorage.getItem(AI_PANEL_WIDTH_KEY))}catch(e){savedAiPanelWidth=0}setAiPanelWidth(savedAiPanelWidth||defaultAiPanelWidth());
+  let resizingAi=false,resizePointerId=null;
+  function finishAiResize(){if(!resizingAi)return;resizingAi=false;document.body.classList.remove('resizing-ai');if(resizePointerId!==null&&aiResizer.hasPointerCapture(resizePointerId))aiResizer.releasePointerCapture(resizePointerId);resizePointerId=null;setAiPanelWidth(aiPanelWidth,true)}
+  aiResizer.addEventListener('pointerdown',event=>{if(window.innerWidth<=900)return;event.preventDefault();resizingAi=true;resizePointerId=event.pointerId;aiResizer.setPointerCapture(event.pointerId);document.body.classList.add('resizing-ai')});
+  window.addEventListener('pointermove',event=>{if(resizingAi)setAiPanelWidth(window.innerWidth-event.clientX)});window.addEventListener('pointerup',finishAiResize);window.addEventListener('pointercancel',finishAiResize);
+  aiResizer.addEventListener('dblclick',()=>setAiPanelWidth(defaultAiPanelWidth(),true));
+  aiResizer.addEventListener('keydown',event=>{if(window.innerWidth<=900||!['ArrowLeft','ArrowRight','Home'].includes(event.key))return;event.preventDefault();if(event.key==='Home')setAiPanelWidth(defaultAiPanelWidth(),true);else setAiPanelWidth(aiPanelWidth+(event.key==='ArrowLeft'?1:-1)*(event.shiftKey?64:24),true)});
+  window.addEventListener('resize',applyAiPanelWidth);
+  const settings=document.getElementById('settings'), backdrop=document.getElementById('backdrop');
+  const sheets=[document.getElementById('toc-sheet'),document.getElementById('ai-sheet')];
+  const tocSearchInput=document.getElementById('toc-search-input'),tocSearchClear=document.getElementById('toc-search-clear'),tocSearchMeta=document.getElementById('toc-search-meta'),tocEmpty=document.getElementById('toc-empty'),tocDefault=document.getElementById('toc-default'),tocSearchResults=document.getElementById('toc-search-results');
+  const defaults={theme:'light',fontSize:20,lineHeight:1.9,font:'system'};let savedSettings={};try{savedSettings=JSON.parse(localStorage.getItem('booklens-reader-settings')||'{}')||{}}catch(e){savedSettings={}}
+  const fonts={
+    system:'-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif',cang04:'KaiTi,"STKaiti",serif',canghua:'"FZKai-Z03S","Kaiti SC",serif',sourceSong:'"Source Han Serif SC","Noto Serif CJK SC","Songti SC",serif',cang05:'"Kaiti SC",KaiTi,serif',jinghua:'"Songti SC","STSong",serif',sourceHei:'"Source Han Sans SC","Noto Sans CJK SC","PingFang SC",sans-serif',cangxuan04:'"STKaiti",KaiTi,serif',hanyiLive:'"HanziPen SC","STKaiti",serif',fangSong:'FangSong,"STFangsong",serif',cangxuan05:'KaiTi,"STKaiti",serif',hanyiKong:'"Kaiti SC",KaiTi,serif',fangYou:'"Songti SC","STSong",serif',cangyun04:'"PingFang SC","Microsoft YaHei",sans-serif',huiwen:'"STKaiti",KaiTi,serif',fangHei:'"Heiti SC","PingFang SC",sans-serif',cangyun05:'"PingFang SC","Microsoft YaHei",sans-serif',hanyiKai:'KaiTi,"Kaiti SC",serif',fangRound:'"Yuanti SC","PingFang SC",sans-serif',cangming04:'"STKaiti",KaiTi,serif',lxgw:'"LXGW WenKai","Kaiti SC",serif',fangKai:'"Kaiti SC",KaiTi,serif',cangming05:'KaiTi,"STKaiti",serif',aiKai:'"Kaiti SC",KaiTi,serif',fangFang:'FangSong,"STFangsong",serif',cangzhuang:'"STKaiti",KaiTi,serif',cangyu:'"Kaiti SC",KaiTi,serif',fangOu:'KaiTi,"STKaiti",serif',canglan:'"Kaiti SC",KaiTi,serif'
+  };
+  const state=Object.assign({},defaults,savedSettings);state.theme=state.theme==='dark'?'dark':'light';state.fontSize=Math.min(30,Math.max(15,Number(state.fontSize)||20));state.lineHeight=1.9;state.font=Object.hasOwn(fonts,state.font)?state.font:'system';
+  function saveSettings(){localStorage.setItem('booklens-reader-settings',JSON.stringify(state))}
+  function applySettings(){
+    root.dataset.theme=state.theme; root.style.setProperty('--reader-size',state.fontSize+'px');root.style.setProperty('--reader-leading',state.lineHeight);root.style.setProperty('--reader-font',fonts[state.font]||fonts.system);
+    document.getElementById('font-range').value=state.fontSize;document.getElementById('font-value').textContent=state.fontSize+' px';
+    document.querySelectorAll('.font-option').forEach(b=>b.classList.toggle('active',b.dataset.font===state.font));
+    document.querySelector('[data-action="theme"] i').className=state.theme==='dark'?'bi bi-sun':'bi bi-moon';
+  }
+  applySettings();
+  function closeSheets(){sheets.forEach(s=>{s.classList.remove('open');s.setAttribute('aria-hidden','true')});app.classList.remove('sheet-left-open','sheet-right-open','sheet-ai-open');backdrop.classList.remove('open');document.getElementById('ai-settings').hidden=true;document.getElementById('ai-settings-toggle').setAttribute('aria-expanded','false');document.getElementById('scope-config').hidden=true;document.getElementById('scope-summary').setAttribute('aria-expanded','false');document.querySelectorAll('[data-action="toc"],[data-action="ai"]').forEach(b=>b.classList.remove('active'))}
+  function openSheet(id,action){closeSheets();settings.classList.remove('open');const sheet=document.getElementById(id);sheet.classList.add('open');sheet.setAttribute('aria-hidden','false');app.classList.add(action==='toc'?'sheet-left-open':'sheet-right-open');if(action==='ai')app.classList.add('sheet-ai-open');backdrop.classList.add('open');document.querySelectorAll('[data-action="'+action+'"]').forEach(b=>b.classList.add('active'));if(action==='toc')setTimeout(()=>tocSearchInput.focus(),260);if(action==='ai')setTimeout(()=>document.getElementById('ask-input').focus(),260)}
+  function toggleSheet(id,action){const sheet=document.getElementById(id);if(sheet.classList.contains('open')){closeSheets();return}openSheet(id,action)}
+  document.querySelectorAll('.close-sheet').forEach(b=>b.addEventListener('click',closeSheets));backdrop.addEventListener('click',closeSheets);
+  document.querySelector('[data-action="toc"]').addEventListener('click',()=>toggleSheet('toc-sheet','toc'));
+  document.querySelector('[data-action="ai"]').addEventListener('click',()=>toggleSheet('ai-sheet','ai'));
+  let tocSearchTimer,tocSearchSequence=0;
+  function resetBookSearch(){tocSearchSequence+=1;clearTimeout(tocSearchTimer);tocDefault.hidden=false;tocSearchResults.hidden=true;tocSearchResults.innerHTML='';tocSearchMeta.hidden=true;tocEmpty.hidden=true}
+  function renderBookSearchResults(results,query){
+    tocSearchResults.innerHTML='';results.forEach(result=>{const link=document.createElement('a');link.className='toc-search-result';link.href='/read/'+encodeURIComponent(BOOK_ID)+'/'+result.chapter_index+'?search='+encodeURIComponent(query);const title=document.createElement('strong');title.textContent=result.title;const snippet=document.createElement('span');snippet.textContent=result.snippet||'章节标题中包含搜索词';link.append(title,snippet);tocSearchResults.appendChild(link)});
+    tocSearchMeta.textContent=results.length?'找到 '+results.length+' 个相关章节':'未找到匹配内容';tocSearchMeta.hidden=false;tocEmpty.textContent='没有找到相关标题或正文';tocEmpty.hidden=results.length>0;
+  }
+  async function searchBook(query,sequence){
+    try{const response=await fetch('/api/search-book?book_id='+encodeURIComponent(BOOK_ID)+'&q='+encodeURIComponent(query));const data=await response.json();if(sequence!==tocSearchSequence)return;if(!response.ok)throw new Error(data.detail||'搜索失败');renderBookSearchResults(data.results||[],query)}catch(error){if(sequence!==tocSearchSequence)return;tocSearchResults.innerHTML='';tocSearchMeta.textContent='搜索暂时不可用';tocSearchMeta.hidden=false;tocEmpty.textContent=error.message||'请稍后重试';tocEmpty.hidden=false}
+  }
+  function queueBookSearch(value){
+    const query=value.trim();tocSearchClear.hidden=!value;clearTimeout(tocSearchTimer);if(!query){resetBookSearch();return}
+    const sequence=++tocSearchSequence;tocDefault.hidden=true;tocSearchResults.hidden=false;tocSearchResults.innerHTML='';tocEmpty.hidden=true;tocSearchMeta.textContent='正在搜索全书…';tocSearchMeta.hidden=false;tocSearchTimer=setTimeout(()=>searchBook(query,sequence),220);
+  }
+  function clearTocSearch(){tocSearchInput.value='';tocSearchClear.hidden=true;resetBookSearch();tocSearchInput.focus()}
+  tocSearchInput.addEventListener('input',e=>queueBookSearch(e.target.value));tocSearchClear.addEventListener('click',clearTocSearch);
+  tocSearchInput.addEventListener('keydown',e=>{if(e.key==='Enter'){const first=tocSearchResults.querySelector('.toc-search-result');if(first){e.preventDefault();first.click()}}else if(e.key==='Escape'&&tocSearchInput.value){e.preventDefault();e.stopPropagation();clearTocSearch()}});
+  document.querySelector('[data-action="theme"]').addEventListener('click',()=>{state.theme=state.theme==='dark'?'light':'dark';applySettings();saveSettings()});
+  document.querySelector('[data-action="font"]').addEventListener('click',e=>{e.stopPropagation();settings.classList.toggle('open');settings.setAttribute('aria-hidden',settings.classList.contains('open')?'false':'true')});
+  document.addEventListener('click',e=>{if(!settings.contains(e.target)&&!e.target.closest('[data-action="font"]'))settings.classList.remove('open')});
+  document.getElementById('font-range').addEventListener('input',e=>{state.fontSize=Number(e.target.value);applySettings();saveSettings()});
+  document.querySelectorAll('.font-option').forEach(b=>b.addEventListener('click',()=>{state.font=b.dataset.font;applySettings();saveSettings()}));
+  document.querySelectorAll('.font-tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.font-tab').forEach(b=>b.classList.toggle('active',b===tab));document.querySelectorAll('.font-option').forEach(b=>b.hidden=tab.dataset.category!=='all'&&b.dataset.category!==tab.dataset.category)}));
+  const READING_PROGRESS_KEY='booklens-reading-progress-v1';let restoringProgress=true,progressTimer;
+  function readProgressMap(){try{return JSON.parse(localStorage.getItem(READING_PROGRESS_KEY)||'{}')||{}}catch(e){return {}}}
+  function saveReadingProgress(){
+    if(restoringProgress)return;const max=Math.max(0,main.scrollHeight-main.clientHeight),progress=readProgressMap();
+    progress[BOOK_ID]={chapterIndex:CHAPTER_INDEX,scrollTop:Math.round(main.scrollTop),scrollRatio:max?main.scrollTop/max:0,updatedAt:Date.now()};
+    const recent=Object.entries(progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0)).slice(0,100);localStorage.setItem(READING_PROGRESS_KEY,JSON.stringify(Object.fromEntries(recent)));
+  }
+  function updateProgress(){const max=main.scrollHeight-main.clientHeight;document.getElementById('progress-fill').style.width=(max>0?main.scrollTop/max*100:100)+'%'}
+  function restoreReadingProgress(){
+    if(!restoringProgress)return;const saved=readProgressMap()[BOOK_ID],params=new URLSearchParams(location.search),hasTarget=location.hash||params.has('toc_title')||params.has('search');
+    if(saved&&saved.chapterIndex===CHAPTER_INDEX&&!hasTarget){const max=Math.max(0,main.scrollHeight-main.clientHeight),ratio=Number(saved.scrollRatio),top=Number.isFinite(ratio)&&max?ratio*max:Number(saved.scrollTop)||0;main.style.scrollBehavior='auto';main.scrollTop=Math.min(max,Math.max(0,top));requestAnimationFrame(()=>main.style.removeProperty('scroll-behavior'))}
+    restoringProgress=false;updateProgress();saveReadingProgress();
+  }
+  main.addEventListener('scroll',()=>{updateProgress();if(restoringProgress)return;clearTimeout(progressTimer);progressTimer=setTimeout(saveReadingProgress,180)},{passive:true});
+  window.addEventListener('pagehide',saveReadingProgress);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveReadingProgress()});
+  if(document.fonts?.ready)document.fonts.ready.then(()=>requestAnimationFrame(restoreReadingProgress));else requestAnimationFrame(restoreReadingProgress);if(document.readyState!=='complete')window.addEventListener('load',()=>requestAnimationFrame(restoreReadingProgress),{once:true});setTimeout(restoreReadingProgress,900);updateProgress();
+  const tocActive=document.querySelector('.toc-link.active');if(tocActive)tocActive.scrollIntoView({block:'center'});
+  const pageParams=new URLSearchParams(location.search),tocTitle=pageParams.get('toc_title'),searchText=pageParams.get('search');if(tocTitle)setTimeout(()=>scrollToHeading(tocTitle),0);if(searchText)setTimeout(()=>scrollToSearchText(searchText),0);if(location.hash)setTimeout(()=>scrollToAnchor(decodeURIComponent(location.hash.slice(1))),0);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSheets();settings.classList.remove('open')}if(['INPUT','TEXTAREA'].includes(e.target.tagName)||document.querySelector('.side-sheet.open'))return;{% if prev_idx is not none %}if(e.key==='ArrowLeft')location.href='/read/{{ book_id }}/{{ prev_idx }}';{% endif %}{% if next_idx is not none %}if(e.key==='ArrowRight')location.href='/read/{{ book_id }}/{{ next_idx }}';{% endif %}});
+
+  const toastEl=document.getElementById('reader-toast');
+  let toastTimer;
+  function showToast(text){toastEl.textContent=text;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),1800)}
+
+  const ANALYSIS_PROMPT_KEY='booklens-reading-analysis-prompt-v1';
+  const analysisSettingsButton=document.getElementById('ai-settings-toggle'),analysisSettings=document.getElementById('ai-settings'),analysisSettingsClose=document.getElementById('ai-settings-close'),analysisField=document.getElementById('analysis-prompt'),analysisMode=document.getElementById('analysis-mode'),analysisCount=document.getElementById('analysis-count');
+  let customAnalysisPrompt='';try{customAnalysisPrompt=String(localStorage.getItem(ANALYSIS_PROMPT_KEY)||'').trim().slice(0,MAX_READING_ANALYSIS_PROMPT_CHARS)}catch(e){customAnalysisPrompt=''}
+  function updateAnalysisCount(){analysisCount.textContent=analysisField.value.length+' / '+MAX_READING_ANALYSIS_PROMPT_CHARS}
+  function syncAnalysisPromptUI(){analysisField.value=customAnalysisPrompt||DEFAULT_READING_ANALYSIS_PROMPT;analysisMode.textContent=customAnalysisPrompt?'自定义':'默认';updateAnalysisCount()}
+  function setAnalysisConfigOpen(open){analysisSettings.hidden=!open;analysisSettingsButton.setAttribute('aria-expanded',String(open));if(open){setScopeConfigOpen(false);setTimeout(()=>analysisField.focus(),0)}}
+  analysisSettingsButton.addEventListener('click',()=>setAnalysisConfigOpen(analysisSettings.hidden));analysisSettingsClose.addEventListener('click',()=>setAnalysisConfigOpen(false));
+  analysisField.addEventListener('input',updateAnalysisCount);
+  document.getElementById('analysis-save').addEventListener('click',()=>{const candidate=analysisField.value.trim();customAnalysisPrompt=candidate&&candidate!==DEFAULT_READING_ANALYSIS_PROMPT?candidate:'';try{if(customAnalysisPrompt)localStorage.setItem(ANALYSIS_PROMPT_KEY,customAnalysisPrompt);else localStorage.removeItem(ANALYSIS_PROMPT_KEY)}catch(e){}syncAnalysisPromptUI();showToast(customAnalysisPrompt?'阅读分析提示词已保存':'已使用默认阅读分析提示词')});
+  document.getElementById('analysis-reset').addEventListener('click',()=>{customAnalysisPrompt='';try{localStorage.removeItem(ANALYSIS_PROMPT_KEY)}catch(e){}syncAnalysisPromptUI();showToast('已恢复默认阅读分析提示词')});
+  syncAnalysisPromptUI();
+
+  const scopeSummary=document.getElementById('scope-summary'),scopeConfig=document.getElementById('scope-config'),scopePreview=document.getElementById('scope-preview'),scopeMode=document.getElementById('scope-mode'),scopePicker=document.getElementById('scope-picker'),scopeCount=document.getElementById('scope-count'),scopeFilter=document.getElementById('scope-filter');
+  const AI_SCOPE_KEY='booklens-ai-scope-'+BOOK_ID;
+  function normalizeScopeIndices(values){return [...new Set((Array.isArray(values)?values:[]).map(Number).filter(index=>Number.isInteger(index)&&index>=0&&index<AI_CHAPTERS.length))].slice(0,MAX_AI_SELECTED_CHAPTERS)}
+  function readAiScope(){let saved={};try{saved=JSON.parse(localStorage.getItem(AI_SCOPE_KEY)||'{}')||{}}catch(e){saved={}}const mode=['current','selected','book'].includes(saved.mode)?saved.mode:'current';const chapterIndices=normalizeScopeIndices(saved.chapterIndices);return {mode,chapterIndices:chapterIndices.length?chapterIndices:[CHAPTER_INDEX]}}
+  let aiScope=readAiScope();
+  function scopeSignature(){return aiScope.mode==='current'?'current-'+CHAPTER_INDEX:aiScope.mode==='book'?'book':'selected-'+aiScope.chapterIndices.slice().sort((a,b)=>a-b).join('.')}
+  function scopeShortLabel(){if(aiScope.mode==='current')return '当前章节';if(aiScope.mode==='book')return '全书';return aiScope.chapterIndices.length+' 个章节'}
+  function scopeDetail(){if(aiScope.mode==='current')return '第 '+(CHAPTER_INDEX+1)+' 节 · '+AI_CHAPTERS[CHAPTER_INDEX].title;if(aiScope.mode==='book')return '全书 '+AI_CHAPTERS.length+' 节，按问题检索相关原文';return aiScope.chapterIndices.map(index=>'第 '+(index+1)+' 节').join('、')}
+  function selectedScopeCheckboxes(){return [...document.querySelectorAll('#scope-chapter-list input:checked')].map(input=>Number(input.value))}
+  function updateScopePickerCount(){const selected=selectedScopeCheckboxes();scopeCount.textContent='已选 '+selected.length+' / '+MAX_AI_SELECTED_CHAPTERS+' 节'}
+  function updateScopePickerVisibility(){const mode=document.querySelector('input[name="ai-scope"]:checked')?.value||'current';scopePicker.hidden=mode!=='selected'}
+  function syncScopeUI(){document.querySelectorAll('input[name="ai-scope"]').forEach(input=>input.checked=input.value===aiScope.mode);const selected=new Set(aiScope.chapterIndices);document.querySelectorAll('#scope-chapter-list input').forEach(input=>input.checked=selected.has(Number(input.value)));scopeMode.textContent=scopeShortLabel();scopePreview.textContent=scopeDetail();updateScopePickerVisibility();updateScopePickerCount()}
+  function setScopeConfigOpen(open){scopeConfig.hidden=!open;scopeSummary.setAttribute('aria-expanded',String(open));if(open){setAnalysisConfigOpen(false);setTimeout(()=>document.querySelector('input[name="ai-scope"]:checked')?.focus(),0)}}
+  scopeSummary.addEventListener('click',()=>setScopeConfigOpen(scopeConfig.hidden));
+  document.querySelectorAll('input[name="ai-scope"]').forEach(input=>input.addEventListener('change',updateScopePickerVisibility));
+  document.querySelectorAll('#scope-chapter-list input').forEach(checkbox=>checkbox.addEventListener('change',()=>{const selected=selectedScopeCheckboxes();if(selected.length>MAX_AI_SELECTED_CHAPTERS){checkbox.checked=false;showToast('最多选择 '+MAX_AI_SELECTED_CHAPTERS+' 个章节')}updateScopePickerCount()}));
+  document.getElementById('scope-current-only').addEventListener('click',()=>{document.querySelectorAll('#scope-chapter-list input').forEach(input=>input.checked=Number(input.value)===CHAPTER_INDEX);updateScopePickerCount()});
+  document.getElementById('scope-clear').addEventListener('click',()=>{document.querySelectorAll('#scope-chapter-list input').forEach(input=>input.checked=false);updateScopePickerCount()});
+  scopeFilter.addEventListener('input',()=>{const query=scopeFilter.value.trim().toLowerCase();document.querySelectorAll('.scope-chapter').forEach(row=>row.hidden=!!query&&!row.dataset.search.toLowerCase().includes(query))});
+  document.getElementById('scope-save').addEventListener('click',()=>{const mode=document.querySelector('input[name="ai-scope"]:checked')?.value||'current',selected=selectedScopeCheckboxes();if(mode==='selected'&&!selected.length){showToast('请至少选择一个章节');return}aiScope={mode,chapterIndices:selected.length?selected:aiScope.chapterIndices};try{localStorage.setItem(AI_SCOPE_KEY,JSON.stringify(aiScope))}catch(e){}syncScopeUI();setScopeConfigOpen(false);loadChat();drawChat();showToast('问书范围已切换为'+scopeShortLabel())});
+  syncScopeUI();
+
+  const messagesEl=document.getElementById('messages'),emptyEl=document.getElementById('ai-empty'),input=document.getElementById('ask-input'),send=document.getElementById('ask-send');
+  function chatStorageKey(){return 'booklens-chat-'+BOOK_ID+'-scope-'+scopeSignature()}
+  let chat=[];
+  function loadChat(){try{const stored=localStorage.getItem(chatStorageKey())||(aiScope.mode==='book'?localStorage.getItem('booklens-chat-'+BOOK_ID):null);chat=JSON.parse(stored||'[]').slice(-20)}catch(e){chat=[]}}
+  loadChat();
+  function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+  function renderMarkdown(text){
+    const lines=escapeHtml(text).split('\n');let out='',inList=false;
+    lines.forEach(line=>{if(/^[-*] /.test(line)){if(!inList){out+='<ul>';inList=true}out+='<li>'+line.slice(2).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</li>';return}if(inList){out+='</ul>';inList=false}if(/^###? /.test(line)){out+='<h3>'+line.replace(/^###? /,'')+'</h3>'}else if(line.trim()){out+='<p>'+line.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</p>'}});if(inList)out+='</ul>';return out;
+  }
+  function drawChat(){messagesEl.innerHTML='';if(!chat.length){messagesEl.appendChild(emptyEl);emptyEl.style.display='flex';return}chat.forEach(m=>{const row=document.createElement('div');row.className='message '+m.role;const bubble=document.createElement('div');bubble.className='bubble';if(m.role==='assistant')bubble.innerHTML=renderMarkdown(m.content);else bubble.textContent=m.content;row.appendChild(bubble);messagesEl.appendChild(row)});messagesEl.scrollTop=messagesEl.scrollHeight}
+  function saveChat(){localStorage.setItem(chatStorageKey(),JSON.stringify(chat.slice(-20)))}drawChat();
+  function loadingRow(){const row=document.createElement('div');row.className='message assistant';row.id='ai-loading';row.innerHTML='<div class="thinking"><span>正在检索'+escapeHtml(scopeShortLabel())+'并思考</span><span class="dots"><i></i><i></i><i></i></span></div>';messagesEl.appendChild(row);messagesEl.scrollTop=messagesEl.scrollHeight}
+  async function ask(question){
+    question=question.trim();if(!question||send.disabled)return;if(!AI_ENABLED){alert('服务端尚未配置 DEEPSEEK_API_KEY。请按 README 配置后重启服务。');return}
+    chat.push({role:'user',content:question});drawChat();loadingRow();input.value='';send.disabled=true;
+    try{const response=await fetch('/api/ask-book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({book_id:BOOK_ID,chapter_index:CHAPTER_INDEX,scope:aiScope.mode,chapter_indices:aiScope.mode==='selected'?aiScope.chapterIndices:[],question,history:chat.slice(0,-1).slice(-8),analysis_prompt:customAnalysisPrompt||null})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'请求失败');chat.push({role:'assistant',content:data.answer});saveChat();drawChat()}catch(err){document.getElementById('ai-loading')?.remove();chat.pop();drawChat();const row=document.createElement('div');row.className='message assistant';row.innerHTML='<div class="bubble"><p>暂时无法回答：'+escapeHtml(err.message)+'</p></div>';messagesEl.appendChild(row)}finally{send.disabled=false;input.focus()}
+  }
+  send.addEventListener('click',()=>ask(input.value));input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask(input.value)}});input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,110)+'px'});
+</script>
 </body>
 </html>

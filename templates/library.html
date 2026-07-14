@@ -394,7 +394,7 @@
                         <div class="book-meta">
                             <span>{{ book.author or "未知作者" }}</span>
                         </div>
-                        <a class="book-action" href="/read/{{ book.id }}/0" aria-label="阅读《{{ book.title }}》">阅读 →</a>
+                        <a class="book-action" href="/read/{{ book.id }}/0" data-book-id="{{ book.id }}" data-chapters="{{ book.chapters }}" aria-label="阅读《{{ book.title }}》">阅读 →</a>
                     </div>
                 </article>
                 {% endfor %}
@@ -402,5 +402,22 @@
             {% endif %}
         </section>
     </main>
+    <script>
+        (() => {
+            let progress = {};
+            try { progress = JSON.parse(localStorage.getItem('booklens-reading-progress-v1') || '{}') || {}; } catch (error) { progress = {}; }
+            document.querySelectorAll('.book-action[data-book-id]').forEach(link => {
+                const saved = progress[link.dataset.bookId];
+                const chapter = Number(saved?.chapterIndex);
+                const chapterCount = Number(link.dataset.chapters);
+                if (!Number.isInteger(chapter) || chapter < 0 || chapter >= chapterCount) return;
+                link.href = '/read/' + encodeURIComponent(link.dataset.bookId) + '/' + chapter;
+                if (chapter > 0 || Number(saved.scrollTop) > 80) {
+                    link.textContent = '继续阅读 · 第 ' + (chapter + 1) + ' 节 →';
+                    link.setAttribute('aria-label', '继续阅读第 ' + (chapter + 1) + ' 节');
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

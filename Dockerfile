@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir --timeout 120 --index-url "${PIP_INDEX_URL}" \
     "beautifulsoup4==4.14.2" \
     "ebooklib==0.20" \
     "fastapi==0.121.2" \
+    "httpx==0.28.1" \
     "jinja2==3.1.6" \
     "python-multipart==0.0.27" \
     "uvicorn==0.38.0"

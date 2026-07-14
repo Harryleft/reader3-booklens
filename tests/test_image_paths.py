@@ -2,7 +2,7 @@ import unittest
 
 from bs4 import BeautifulSoup
 
-from reader3 import rewrite_content_image_paths
+from reader3 import clean_html_content, rewrite_content_image_paths
 
 
 class RewriteContentImagePathsTests(unittest.TestCase):
@@ -41,6 +41,22 @@ class RewriteContentImagePathsTests(unittest.TestCase):
         image = BeautifulSoup(result, "html.parser").find("img")
 
         self.assertEqual(image["src"], "images/cover.jpeg")
+
+    def test_removes_executable_epub_attributes_and_urls(self):
+        soup = BeautifulSoup(
+            '<p onclick="steal()">正文</p>'
+            '<img src="javascript:steal()" onerror="steal()">'
+            '<a href="https://example.com" style="color:red">安全链接</a>',
+            "html.parser",
+        )
+
+        result = clean_html_content(soup)
+
+        self.assertNotIn("onclick", result.p.attrs)
+        self.assertNotIn("src", result.img.attrs)
+        self.assertNotIn("onerror", result.img.attrs)
+        self.assertNotIn("style", result.a.attrs)
+        self.assertEqual(result.a["href"], "https://example.com")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import shutil
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 import ebooklib
 from ebooklib import epub
@@ -73,7 +73,8 @@ class Book:
 def clean_html_content(soup: BeautifulSoup) -> BeautifulSoup:
 
     # Remove dangerous/useless tags
-    for tag in soup(['script', 'style', 'iframe', 'video', 'nav', 'form', 'button']):
+    for tag in soup(['script', 'style', 'iframe', 'video', 'nav', 'form', 'button',
+                     'object', 'embed', 'foreignObject', 'base', 'meta', 'link']):
         tag.decompose()
 
     # Remove HTML comments
@@ -83,6 +84,24 @@ def clean_html_content(soup: BeautifulSoup) -> BeautifulSoup:
     # Remove input tags
     for tag in soup.find_all('input'):
         tag.decompose()
+
+    # EPUB files are untrusted input. Remove executable attributes and unsafe
+    # URL schemes while preserving normal typography and local book images.
+    url_attributes = {'href', 'src', 'xlink:href', 'poster'}
+    safe_schemes = {'', 'http', 'https', 'mailto'}
+    for tag in soup.find_all(True):
+        for attribute, value in list(tag.attrs.items()):
+            normalized = attribute.lower()
+            if normalized.startswith('on') or normalized in {'style', 'srcdoc', 'formaction'}:
+                del tag.attrs[attribute]
+                continue
+            if normalized in url_attributes:
+                raw_value = value[0] if isinstance(value, list) and value else value
+                raw_value = str(raw_value or '').strip()
+                scheme = urlsplit(raw_value).scheme.lower()
+                is_safe_data_image = normalized in {'src', 'xlink:href'} and raw_value.lower().startswith('data:image/')
+                if scheme not in safe_schemes and not is_safe_data_image:
+                    del tag.attrs[attribute]
 
     return soup
 

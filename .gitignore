@@ -15,3 +15,6 @@ wheels/
 book/
 CLAUDE.md
 AGENTS.md
+.env
+.playwright-cli/
+output/playwright/
