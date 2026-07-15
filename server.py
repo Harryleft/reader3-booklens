@@ -3,6 +3,7 @@ import pickle
 import re
 import tempfile
 import asyncio
+import json
 import time
 from collections import defaultdict, deque
 from dataclasses import replace
@@ -11,7 +12,7 @@ from typing import Literal, Optional
 
 import httpx
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Query
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
 
@@ -256,6 +257,104 @@ def search_book_content(book: Book, query: str, limit: int = 20) -> list[dict[st
     ranked.sort(key=lambda item: (item[0], item[1]))
     return [item[2] for item in ranked[:limit]]
 
+
+def encode_sse(event: str, data: dict[str, object]) -> str:
+    """Encode one small Server-Sent Event without escaping Chinese text."""
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+def decode_deepseek_stream_line(line: str) -> tuple[str, str]:
+    """Return ``(kind, text)`` for one DeepSeek SSE line."""
+    if not line.startswith("data:"):
+        return "ignore", ""
+
+    raw_data = line[5:].strip()
+    if raw_data == "[DONE]":
+        return "done", ""
+
+    data = json.loads(raw_data)
+    if data.get("error"):
+        return "error", "DeepSeek 流式响应中断"
+
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return "ignore", ""
+    delta = choices[0].get("delta", {})
+    if not isinstance(delta, dict):
+        return "ignore", ""
+
+    content = delta.get("content")
+    if isinstance(content, str) and content:
+        return "token", content
+    if delta.get("reasoning_content"):
+        return "thinking", ""
+    return "ignore", ""
+
+
+def deepseek_error_detail(status_code: int) -> str:
+    if status_code in (401, 403):
+        return "DeepSeek API Key 无效或无权限"
+    if status_code == 429:
+        return "DeepSeek 请求过于频繁或余额不足"
+    return f"DeepSeek 服务返回错误（{status_code}）"
+
+
+async def stream_deepseek_answer(
+    request: Request,
+    api_key: str,
+    messages: list[dict[str, str]],
+):
+    """Proxy DeepSeek's stream as stable SSE events for the reader UI."""
+    yielded_content = False
+    last_heartbeat = time.monotonic()
+    yield ": connected\n\n"
+    try:
+        async with AI_CONCURRENCY:
+            timeout = httpx.Timeout(90.0, connect=15.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream(
+                    "POST",
+                    DEEPSEEK_API_URL,
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={
+                        "model": DEEPSEEK_MODEL,
+                        "messages": messages,
+                        "thinking": {"type": "enabled"},
+                        "reasoning_effort": "high",
+                        "max_tokens": 3_000,
+                        "stream": True,
+                    },
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if await request.is_disconnected():
+                            return
+                        kind, text = decode_deepseek_stream_line(line)
+                        if kind == "token":
+                            yielded_content = True
+                            yield encode_sse("token", {"content": text})
+                        elif kind == "thinking":
+                            now = time.monotonic()
+                            if now - last_heartbeat >= 10:
+                                last_heartbeat = now
+                                yield ": thinking\n\n"
+                        elif kind == "done":
+                            break
+                        elif kind == "error":
+                            raise ValueError(text)
+
+        if not yielded_content:
+            raise ValueError("empty AI response")
+        yield encode_sse("done", {"model": DEEPSEEK_MODEL})
+    except httpx.HTTPStatusError as exc:
+        yield encode_sse(
+            "error",
+            {"detail": deepseek_error_detail(exc.response.status_code)},
+        )
+    except (httpx.HTTPError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+        yield encode_sse("error", {"detail": "AI 服务暂时不可用，请稍后重试"})
+
 PROMOTIONAL_TITLE_TERMS = (
     "必读",
     "经典",
@@ -334,10 +433,13 @@ async def library_view(request: Request):
 
     return templates.TemplateResponse("library.html", {"request": request, "books": books})
 
-@app.get("/read/{book_id}", response_class=HTMLResponse)
-async def redirect_to_first_chapter(book_id: str):
+@app.get("/read/{book_id}")
+async def redirect_to_first_chapter(request: Request, book_id: str):
     """Helper to just go to chapter 0."""
-    return await read_chapter(book_id=book_id, chapter_index=0)
+    return RedirectResponse(
+        request.url_for("read_chapter", book_id=book_id, chapter_index=0),
+        status_code=307,
+    )
 
 @app.get("/read/{book_id}/{chapter_index}", response_class=HTMLResponse)
 async def read_chapter(request: Request, book_id: str, chapter_index: int):
@@ -400,7 +502,7 @@ async def search_book(
 
 @app.post("/api/ask-book")
 async def ask_book(request: Request, payload: AskBookRequest):
-    """Answer a book question with server-side credentials and retrieved context."""
+    """Stream a book answer while keeping credentials and context server-side."""
     safe_book_id = os.path.basename(payload.book_id)
     if safe_book_id != payload.book_id:
         raise HTTPException(status_code=400, detail="书籍标识无效")
@@ -456,40 +558,14 @@ async def ask_book(request: Request, payload: AskBookRequest):
         ),
     })
 
-    try:
-        async with AI_CONCURRENCY:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=15.0)) as client:
-                response = await client.post(
-                    DEEPSEEK_API_URL,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json={
-                        "model": DEEPSEEK_MODEL,
-                        "messages": messages,
-                        "thinking": {"type": "enabled"},
-                        "reasoning_effort": "high",
-                        "max_tokens": 3_000,
-                        "stream": False,
-                    },
-                )
-            response.raise_for_status()
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-            if not isinstance(content, str) or not content.strip():
-                raise ValueError("empty AI response")
-            answer = content.strip()
-    except httpx.HTTPStatusError as exc:
-        status = exc.response.status_code
-        if status in (401, 403):
-            detail = "DeepSeek API Key 无效或无权限"
-        elif status == 429:
-            detail = "DeepSeek 请求过于频繁或余额不足"
-        else:
-            detail = f"DeepSeek 服务返回错误（{status}）"
-        raise HTTPException(status_code=502, detail=detail) from exc
-    except (httpx.HTTPError, KeyError, ValueError, TypeError, IndexError, AttributeError) as exc:
-        raise HTTPException(status_code=502, detail="AI 服务暂时不可用，请稍后重试") from exc
-
-    return {"answer": answer, "model": DEEPSEEK_MODEL}
+    return StreamingResponse(
+        stream_deepseek_answer(request, api_key, messages),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 @app.get("/read/{book_id}/images/{image_name}")
 async def serve_image(book_id: str, image_name: str):

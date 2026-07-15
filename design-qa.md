@@ -54,6 +54,30 @@ final result: passed
 
 ---
 
+# 侧栏动画连续性修复
+
+- Root cause: 顶栏从 `margin: 0 auto` 切换到固定边距时无法插值，正文则独立执行 margin 动画；窄桌面下正文 padding 与工具栏显示状态同时硬切。
+- Correction: 顶栏与正文改为共享 `.app` 的三列 Grid 动画轨道；正文 padding、工具栏收缩与 AI 面板阴影使用同周期连续过渡。
+- Browser matrix: 900/901、928、1199/1200、1279/1280、1779/1780、1800、1971/1972 视口，左右侧栏 open/close 共 48 条逐帧路径。
+- Runtime result: 点击同帧几何跳变 0 px；顶栏、正文壳与正文中心最大偏差不超过 0.01 px；无横向溢出，浏览器 console error / warning 为 0。
+- Stress paths: AI 最小/最大宽度、动画中途反向、目录与 AI 直接切换均通过。
+- Automated checks: 33 passed；渲染后 JavaScript `node --check`、Compose 配置与 `git diff --check` 通过。
+
+final result: passed
+
+---
+
+# Neat-freak 文档与入口回归
+
+- 重写 README，删除已下线的复制提示词、双页和旧 AI 操作说明。
+- 新增架构、集成、运维、交接文档以及可随仓库分发的项目级 `AGENTS.md`。
+- 逐路由运行时核对发现 `/read/{book_id}` 缺少 `Request` 参数；已改为 307 跳转第一章并补回归测试。
+- Automated tests: 32 passed；渲染后 JavaScript `node --check` passed；Compose 配置、Markdown 链接、密钥扫描与 `git diff --check` passed。
+
+final result: passed
+
+---
+
 # 阅读笔记功能下线
 
 - 已删除顶部“阅读笔记”入口、笔记侧栏及全部笔记样式、事件监听和 `booklens-notes-*` 本地存储代码。
@@ -100,5 +124,21 @@ final result: passed
 - Python tests: 26 passed。
 - Rendered inline JavaScript: `node --check` passed。
 - Patch whitespace: `git diff --check` passed。
+
+final result: passed
+
+---
+
+# AI 问书流式输出
+
+- 服务端将 DeepSeek `stream: true` 响应转换为 `text/event-stream`，只向页面转发回答正文，不展示推理过程。
+- SSE events: `token` 增量内容、`done` 正常完成、`error` 中途失败；连接建立与推理阶段使用注释帧维持流连接。
+- Response headers: `Cache-Control: no-cache, no-transform`、`X-Accel-Buffering: no`，避免代理缓冲。
+- 前端使用 `ReadableStream.getReader()` 和 `TextDecoder` 增量解析，同一回答气泡按动画帧刷新；完成后才写入聊天记录。
+- Local live request: 20 个 `token` 事件、1 个 `done` 事件、0 个 `error` 事件。
+- Production live request: HTTP 200，`text/event-stream; charset=utf-8`，16 个 `token` 事件、1 个 `done` 事件、0 个 `error` 事件。
+- Production UI: 最终回答 1203 字，无错误提示；浏览器控制台 error / warning 为 0。
+- Production screenshot: `output/qa/ai-streaming-production.png`。
+- Automated tests: 31 passed；渲染后 JavaScript `node --check` passed；`git diff --check` passed。
 
 final result: passed

@@ -27,17 +27,17 @@
     body{background:var(--canvas);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;transition:background .2s,color .2s}
     button,input,textarea{font:inherit}
     button{color:inherit}
-    .app{height:100%;display:flex;flex-direction:column}
-    .topbar{width:min(100%,1140px);height:64px;flex:0 0 64px;margin:0 auto;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--paper) 96%,transparent);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 26px;position:relative;z-index:20;transition:width .26s ease,margin .26s ease}
+    .app{height:100%;display:grid;grid-template-columns:0 minmax(0,1fr) 0;grid-template-rows:64px minmax(0,1fr);transition:grid-template-columns .26s ease}
+    .topbar{grid-column:2;grid-row:1;width:min(100%,1140px);height:64px;margin:0 auto;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--paper) 96%,transparent);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 26px;position:relative;z-index:20}
     .brand{grid-column:1;justify-self:start;display:flex;align-items:center;min-width:0;max-width:100%;color:var(--text);text-decoration:none;font-weight:600}
     .book-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
     .top-actions{grid-column:3;justify-self:end;display:flex;align-items:center;gap:18px;font-size:14px;color:var(--muted)}
     .top-actions a{color:inherit;text-decoration:none}.top-actions a:hover{color:var(--text)}
     .divider{width:1px;height:16px;background:var(--line-strong)}
-    .reader-shell{min-height:0;flex:1;position:relative;transition:margin .26s ease}
-    #main{height:100%;overflow:auto;scroll-behavior:smooth;scrollbar-gutter:stable both-edges;padding:0 92px}
+    .reader-shell{grid-column:2;grid-row:2;min-height:0;position:relative}
+    #main{height:100%;overflow:auto;scroll-behavior:smooth;scrollbar-gutter:stable both-edges;padding:0 92px;transition:padding .26s ease}
     .content-wrap{width:min(100%,1140px);margin:0 auto;padding:0 0 64px}
-    .book-content{min-height:calc(100vh - 128px);padding:38px 115px 40px;background:var(--paper);font-family:var(--reader-font);font-size:var(--reader-size);line-height:var(--reader-leading);letter-spacing:.01em;transition:background .2s,color .2s,font-size .2s}
+    .book-content{min-height:calc(100vh - 128px);padding:38px 115px 40px;background:var(--paper);font-family:var(--reader-font);font-size:var(--reader-size);line-height:var(--reader-leading);letter-spacing:.01em;transition:background .2s,color .2s,font-size .2s,padding .26s ease}
     .book-content p{margin:0 0 1.45em;text-align:justify;word-break:break-word}
     .book-content h1,.book-content h2,.book-content h3,.book-content h4{margin:1.7em 0 .8em;line-height:1.35;color:var(--text)}
     .book-content h1{font-size:1.65em}.book-content h2{font-size:1.4em}.book-content h3{font-size:1.18em}
@@ -45,24 +45,25 @@
     .book-content blockquote{margin:1.5em 0;padding:.2em 1.2em;border-left:3px solid var(--line-strong);color:var(--muted)}
     .book-content a{color:var(--accent)}
     .book-content>:first-child{margin-top:0}
-    .chapter-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;padding:28px 115px 0;color:var(--muted);font-size:14px}
+    .chapter-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;padding:28px 115px 0;color:var(--muted);font-size:14px;transition:padding .26s ease}
     .chapter-nav a{color:var(--accent);text-decoration:none}.chapter-nav .next{text-align:right}.chapter-nav .disabled{opacity:.4}
     .progress-track{position:fixed;left:0;right:0;bottom:0;height:2px;background:transparent;z-index:30}
     .progress-fill{height:100%;background:var(--accent);width:0;transition:width .12s linear}
-    .toolbar{grid-column:2;justify-self:center;height:64px;display:flex;flex-direction:row;align-items:center;gap:6px;padding:0 8px;border:0;background:transparent;box-shadow:none;transition:opacity .18s,transform .18s}
+    .toolbar{grid-column:2;justify-self:center;max-width:280px;height:64px;display:flex;flex-direction:row;align-items:center;gap:6px;overflow:hidden;padding:0 8px;border:0;background:transparent;box-shadow:none;transition:opacity .18s,transform .18s,max-width .26s ease,padding .26s ease,gap .26s ease}
     .tool-btn{width:48px;height:48px;border:1px solid transparent;border-radius:50%;background:transparent;display:grid;place-items:center;font-size:20px;color:var(--muted);cursor:pointer;transition:.18s}
     .tool-btn:hover,.tool-btn.active{color:var(--accent);transform:translateY(-1px);box-shadow:0 10px 26px rgba(28,34,42,.12)}
     .tool-btn .ai-mark{font-family:Georgia,serif;font-size:19px}.tool-btn .ai-mark sup{font-size:9px}
     .sheet-backdrop{position:fixed;inset:64px 0 0;background:rgba(16,19,23,.36);z-index:40;opacity:0;pointer-events:none;transition:.2s}
     .sheet-backdrop.open{opacity:0;pointer-events:none}
-    .side-sheet{position:fixed;top:64px;bottom:0;background:var(--paper);z-index:45;transition:transform .26s ease;display:flex;flex-direction:column}
+    .side-sheet{position:fixed;top:64px;bottom:0;background:var(--paper);z-index:45;transition:transform .26s ease,box-shadow .26s ease;display:flex;flex-direction:column}
     #toc-sheet{top:0;left:max(0px,calc((100vw - 1140px)/2 - 336px));width:320px;border:1px solid var(--line);border-top:0;box-shadow:12px 0 34px rgba(22,28,37,.08);transform:translateX(calc(-100% - max(0px,calc((100vw - 1140px)/2 - 336px))))}
-    #ai-sheet{top:0;right:0;width:var(--ai-panel-width);border-left:1px solid var(--line);box-shadow:-12px 0 34px rgba(22,28,37,.08);transform:translateX(105%)}
+    #ai-sheet{top:0;right:0;width:var(--ai-panel-width);border-left:1px solid var(--line);box-shadow:0 0 0 rgba(22,28,37,0);transform:translateX(100%)}
+    #ai-sheet.open{box-shadow:-12px 0 34px rgba(22,28,37,.08)}
     #toc-sheet.open,#ai-sheet.open{transform:translateX(0)!important}
     .ai-resizer{position:absolute;left:-7px;top:0;bottom:0;width:14px;z-index:7;cursor:col-resize;touch-action:none;outline:0}
     .ai-resizer::after{content:"";position:absolute;left:6px;top:0;bottom:0;width:2px;background:transparent;transition:background .16s}
     .ai-resizer:hover::after,.ai-resizer:focus-visible::after,body.resizing-ai .ai-resizer::after{background:var(--accent)}
-    body.resizing-ai{cursor:col-resize;user-select:none}body.resizing-ai .reader-shell,body.resizing-ai .topbar,body.resizing-ai .toolbar{transition:none}
+    body.resizing-ai{cursor:col-resize;user-select:none}body.resizing-ai .app,body.resizing-ai .toolbar{transition:none}
     .sheet-head{height:64px;flex:0 0 64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;position:relative;padding:0 54px}
     .sheet-head strong{font-size:16px}.sheet-head small{display:block;text-align:center;color:var(--muted);font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .close-sheet{position:absolute;right:18px;top:14px;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;font-size:20px}.close-sheet:hover{background:var(--paper-soft)}
@@ -93,20 +94,16 @@
     .font-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.font-option{min-height:54px;border:1px solid transparent;border-radius:9px;background:var(--paper-soft);padding:8px 4px;cursor:pointer;font-size:12px}.font-option:hover{border-color:var(--line-strong)}.font-option.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}.font-option[hidden]{display:none}
     .reader-toast{position:fixed;left:50%;bottom:34px;z-index:100;transform:translate(-50%,16px);padding:10px 16px;border-radius:10px;background:rgba(30,32,36,.92);color:#fff;font-size:13px;opacity:0;transition:.18s;pointer-events:none}.reader-toast.show{opacity:1;transform:translate(-50%,0)}
     @media(min-width:901px) and (max-width:1779px){
-      .app.sheet-left-open .topbar{width:min(calc(100% - 320px),1140px);margin-left:320px;margin-right:auto}
-      .app.sheet-left-open .reader-shell{margin-left:320px}
+      .app.sheet-left-open{grid-template-columns:320px minmax(0,1fr) 0}
     }
     @media(min-width:901px) and (max-width:1971px){
-      .app.sheet-ai-open .topbar{width:min(calc(100% - var(--ai-panel-width)),1140px);margin-left:max(0px,calc((100vw - var(--ai-panel-width) - 1140px)/2));margin-right:auto}
-      .app.sheet-ai-open .reader-shell{margin-right:var(--ai-panel-width)}
+      .app.sheet-ai-open{grid-template-columns:0 minmax(0,1fr) var(--ai-panel-width)}
     }
     @media(min-width:901px) and (max-width:1199px){
       .app.sheet-left-open #main,.app.sheet-right-open #main{padding-left:24px;padding-right:24px}
       .app.sheet-left-open .book-content,.app.sheet-right-open .book-content{padding-left:64px;padding-right:64px}
       .app.sheet-left-open .chapter-nav,.app.sheet-right-open .chapter-nav{padding-left:64px;padding-right:64px}
-      .app:has(.side-sheet.open) .topbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-      .app:has(.side-sheet.open) .toolbar{display:none}
-      .app:has(.side-sheet.open) .top-actions{grid-column:2}
+      .app:has(.side-sheet.open) .toolbar{max-width:0;gap:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none;transform:scale(.96)}
     }
     @media(max-width:900px){
       .topbar{padding:0 18px}.top-actions .library-label,.divider{display:none}.book-title{max-width:56vw}
@@ -115,7 +112,7 @@
       .app:has(.side-sheet.open) .toolbar{opacity:0;pointer-events:none;transform:translate(-50%,12px)}
       .tool-btn{width:46px;height:46px;box-shadow:none}.settings{left:12px;right:12px;top:auto;bottom:84px;width:auto;max-height:72vh;transform:translateY(20px)}.settings.open{transform:none}.font-options{grid-template-columns:repeat(3,1fr)}
       .sheet-backdrop{inset:64px 0 0}.sheet-backdrop.open{opacity:1;pointer-events:auto}
-      .app.sheet-right-open .reader-shell{margin:0}.app.sheet-right-open #main{padding:0}.app.sheet-right-open .toolbar{right:auto}
+      .app.sheet-right-open #main{padding:0}.app.sheet-right-open .toolbar{right:auto}
       #toc-sheet,#ai-sheet{left:0;right:0;width:100%;transform:translateX(105%)}#toc-sheet{transform:translateX(-105%)}#toc-sheet.open,#ai-sheet.open{transform:translateX(0)}
       .ai-resizer{display:none}
     }
@@ -402,11 +399,28 @@
   }
   function drawChat(){messagesEl.innerHTML='';if(!chat.length){messagesEl.appendChild(emptyEl);emptyEl.style.display='flex';return}chat.forEach(m=>{const row=document.createElement('div');row.className='message '+m.role;const bubble=document.createElement('div');bubble.className='bubble';if(m.role==='assistant')bubble.innerHTML=renderMarkdown(m.content);else bubble.textContent=m.content;row.appendChild(bubble);messagesEl.appendChild(row)});messagesEl.scrollTop=messagesEl.scrollHeight}
   function saveChat(){localStorage.setItem(chatStorageKey(),JSON.stringify(chat.slice(-20)))}drawChat();
-  function loadingRow(){const row=document.createElement('div');row.className='message assistant';row.id='ai-loading';row.innerHTML='<div class="thinking"><span>正在检索'+escapeHtml(scopeShortLabel())+'并思考</span><span class="dots"><i></i><i></i><i></i></span></div>';messagesEl.appendChild(row);messagesEl.scrollTop=messagesEl.scrollHeight}
+  function loadingRow(){const row=document.createElement('div');row.className='message assistant';row.id='ai-loading';row.innerHTML='<div class="thinking"><span>正在检索'+escapeHtml(scopeShortLabel())+'并思考</span><span class="dots"><i></i><i></i><i></i></span></div>';messagesEl.appendChild(row);messagesEl.setAttribute('aria-busy','true');messagesEl.scrollTop=messagesEl.scrollHeight;return row}
+  async function readAnswerStream(response,row){
+    if(!response.body)throw new Error('当前浏览器不支持流式回答');
+    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',answer='',receivedDone=false,bubble=null,paintFrame=0;
+    const flush=()=>{if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0}if(!bubble){row.innerHTML='<div class="bubble"></div>';bubble=row.querySelector('.bubble')}bubble.innerHTML=renderMarkdown(answer);messagesEl.scrollTop=messagesEl.scrollHeight};
+    const paint=()=>{if(!paintFrame)paintFrame=requestAnimationFrame(()=>{paintFrame=0;flush()})};
+    const consume=block=>{
+      if(!block.trim()||block.trimStart().startsWith(':'))return;
+      let event='message';const data=[];
+      block.split(/\r?\n/).forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();else if(line.startsWith('data:'))data.push(line.slice(5).trimStart())});
+      if(!data.length)return;let payload={};try{payload=JSON.parse(data.join('\n'))}catch(error){throw new Error('AI 返回了无法解析的数据')}
+      if(event==='token'&&typeof payload.content==='string'){answer+=payload.content;paint()}
+      else if(event==='error')throw new Error(payload.detail||'AI 服务暂时不可用');
+      else if(event==='done')receivedDone=true;
+    };
+    while(true){const chunk=await reader.read();buffer+=decoder.decode(chunk.value||new Uint8Array(),{stream:!chunk.done});const blocks=buffer.split(/\r?\n\r?\n/);buffer=blocks.pop()||'';blocks.forEach(consume);if(chunk.done){if(buffer.trim())consume(buffer);break}}
+    flush();if(!receivedDone||!answer.trim())throw new Error('AI 回答意外中断');return answer.trim();
+  }
   async function ask(question){
     question=question.trim();if(!question||send.disabled)return;if(!AI_ENABLED){alert('服务端尚未配置 DEEPSEEK_API_KEY。请按 README 配置后重启服务。');return}
-    chat.push({role:'user',content:question});drawChat();loadingRow();input.value='';send.disabled=true;
-    try{const response=await fetch('/api/ask-book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({book_id:BOOK_ID,chapter_index:CHAPTER_INDEX,scope:aiScope.mode,chapter_indices:aiScope.mode==='selected'?aiScope.chapterIndices:[],question,history:chat.slice(0,-1).slice(-8),analysis_prompt:customAnalysisPrompt||null})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'请求失败');chat.push({role:'assistant',content:data.answer});saveChat();drawChat()}catch(err){document.getElementById('ai-loading')?.remove();chat.pop();drawChat();const row=document.createElement('div');row.className='message assistant';row.innerHTML='<div class="bubble"><p>暂时无法回答：'+escapeHtml(err.message)+'</p></div>';messagesEl.appendChild(row)}finally{send.disabled=false;input.focus()}
+    chat.push({role:'user',content:question});drawChat();const streamRow=loadingRow();input.value='';send.disabled=true;
+    try{const response=await fetch('/api/ask-book',{method:'POST',headers:{'Content-Type':'application/json','Accept':'text/event-stream'},body:JSON.stringify({book_id:BOOK_ID,chapter_index:CHAPTER_INDEX,scope:aiScope.mode,chapter_indices:aiScope.mode==='selected'?aiScope.chapterIndices:[],question,history:chat.slice(0,-1).slice(-8),analysis_prompt:customAnalysisPrompt||null})});if(!response.ok){let detail='请求失败';try{detail=(await response.json()).detail||detail}catch(error){}throw new Error(detail)}const answer=await readAnswerStream(response,streamRow);chat.push({role:'assistant',content:answer});saveChat();drawChat()}catch(err){streamRow.remove();chat.pop();drawChat();const row=document.createElement('div');row.className='message assistant';row.innerHTML='<div class="bubble"><p>暂时无法回答：'+escapeHtml(err.message)+'</p></div>';messagesEl.appendChild(row)}finally{messagesEl.setAttribute('aria-busy','false');send.disabled=false;input.focus()}
   }
   send.addEventListener('click',()=>ask(input.value));input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask(input.value)}});input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,110)+'px'});
 </script>

@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from pydantic import ValidationError
 from starlette.requests import Request
+from starlette.responses import StreamingResponse
 
 import server
 from reader3 import Book, BookMetadata, ChapterContent
@@ -17,6 +18,8 @@ from server import (
     build_analysis_system_messages,
     build_analysis_system_prompt,
     build_book_context,
+    decode_deepseek_stream_line,
+    encode_sse,
     reading_analysis_template_context,
     resolve_ai_scope,
     search_book_content,
@@ -218,3 +221,46 @@ def test_full_book_search_matches_chapter_titles():
 
     assert results[0]["chapter_index"] == 2
     assert results[0]["title"] == "结语"
+
+
+def test_deepseek_stream_decoder_extracts_only_answer_content():
+    token_line = 'data: {"choices":[{"delta":{"content":"你好"}}]}'
+    thinking_line = 'data: {"choices":[{"delta":{"reasoning_content":"分析中"}}]}'
+
+    assert decode_deepseek_stream_line(token_line) == ("token", "你好")
+    assert decode_deepseek_stream_line(thinking_line) == ("thinking", "")
+    assert decode_deepseek_stream_line("data: [DONE]") == ("done", "")
+    assert decode_deepseek_stream_line(": keep-alive") == ("ignore", "")
+
+
+def test_sse_encoder_keeps_event_boundaries_and_chinese_text():
+    event = encode_sse("token", {"content": "媒介即讯息"})
+
+    assert event == 'event: token\ndata: {"content":"媒介即讯息"}\n\n'
+
+
+def test_ask_book_returns_non_buffered_sse_response(monkeypatch):
+    monkeypatch.setattr(server, "load_book_cached", lambda _book_id: make_book())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-only-key")
+    server.AI_REQUESTS.clear()
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/ask-book",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+    payload = AskBookRequest(
+        book_id="test_data",
+        chapter_index=0,
+        question="本章讲了什么？",
+    )
+
+    response = asyncio.run(server.ask_book(request, payload))
+
+    assert isinstance(response, StreamingResponse)
+    assert response.media_type == "text/event-stream"
+    assert response.headers["cache-control"] == "no-cache, no-transform"
+    assert response.headers["x-accel-buffering"] == "no"

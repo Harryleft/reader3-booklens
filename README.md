@@ -1,62 +1,59 @@
 # BookLens
 
-![homepage](/image/homepage.jpg)
+自托管 EPUB 阅读器，提供书架、正文阅读、全书搜索和基于原文的 AI 问书。
 
-一个自托管 EPUB 阅读器，让你逐章阅读 EPUB 电子书，并将章节内容一键复制给 LLM 进行共读理解。
+![书架](image/homepage.jpg)
 
-## 功能
+## 当前能力
 
-- 逐章阅读 EPUB 电子书，支持目录导航
-- 浮动按钮一键复制章节内容，自动用提示词模板包裹
-- 内置提示词模板 + 自定义模板管理
-- Web 端导入页面，支持拖拽上传 EPUB 文件，自动解析入库
-- 自动提取书籍元数据（标题、作者、目录结构、图片）
-- 微信读书式正文界面：目录抽屉、双栏、字号/行距/字体和深浅色主题
-- 内置 AI 问书：使用 DeepSeek V4 Pro，自动检索当前章与全书相关段落
-- AI 回答沿用“阅读分析”框架：论证链、隐含前提、暗线、联想与反例
+- 导入并解析 EPUB，展示书籍元数据、封面和目录。
+- 单页正文阅读；目录固定为左侧栏，AI 问书固定为可拖动宽度的右侧栏。
+- 搜索章节标题和正文，结果可跳转并定位关键词。
+- 记忆每本书的章节与滚动位置；保存字号、字体和深浅色设置。
+- AI 范围支持当前章节、指定章节（最多 12 节）或全书检索。
+- 阅读分析提示词可在 AI 设置中修改；服务端安全约束不可被覆盖。
+- DeepSeek 回答以 SSE 增量输出；推理过程不展示，API Key 不下发浏览器。
 
-## 快速开始
+当前刻意不提供阅读笔记、划线和双页显示，避免维护未完成的交互分支。
 
-本项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖。
+## 本地启动
 
-**1. 启动服务**
-
-先配置 DeepSeek API Key（`.env` 已被 Git 忽略）：
+需要 Python 3.10+ 和 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入 DEEPSEEK_API_KEY
-```
-
-```bash
+# 编辑 .env，设置 DEEPSEEK_API_KEY
+uv sync
 uv run server.py
 ```
 
-或使用一键启动脚本：
+打开 [http://localhost:8123](http://localhost:8123)，在书架页面导入 EPUB。
+
+也可用 Docker Compose：
 
 ```bash
-start.bat
+docker compose up --build -d
 ```
 
-**2. 导入书籍**
+## 验证
 
-![homepage](/image/import-book.jpg)
+```bash
+uv run pytest -q
+```
 
-**3. 打开浏览器**
+## 文档
 
-访问 [localhost:8123](http://localhost:8123/) 即可看到书库。
+- [架构与数据流](docs/architecture.md)
+- [集成与 API](docs/integration-guide.md)
+- [部署与故障处理](docs/operator-runbook.md)
+- [维护交接](docs/handoff.md)
+- [设计回归记录](design-qa.md)
 
-## AI辅助功能
+## 安全边界
 
-正文右侧点击 `Ai` 即可直接问书。服务端使用 `deepseek-v4-pro`，不会把 API Key 下发到浏览器；每次请求会优先检索与问题相关的章节，并限制并发与每小时请求次数。
-
-![AI tools](/image/AI-tools.jpg)
-
-点击右下角图标，自动复制当前章节内容，并拼接为提示词。然后就可以发送给喜欢的AI模型，帮助理解本章内容。
-
-也可以自定义提示词：
-
-![prompt-settings](/image/prompt-settings.jpg)
+- 真实密钥只放在被 Git 忽略的 `.env` 或服务器环境变量中。
+- `book/` 保存导入后的书籍数据，不应提交到 Git。
+- 生产环境由 Cloudflare Access 保护；应用本身不实现用户账号体系。
 
 ## License
 
