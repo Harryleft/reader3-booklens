@@ -25,10 +25,12 @@ docker compose config
 
 ```bash
 cd /opt/reader3-booklens
-docker compose up --build -d
-docker compose ps
+docker-compose up --build -d
+docker-compose ps
 curl -fsS http://127.0.0.1:8123/ >/dev/null
 ```
+
+当前生产主机使用 `/usr/local/bin/docker-compose` 独立入口（Compose v2），没有安装 `docker compose` CLI 插件；迁移主机时应先用 `docker-compose version` 或 `docker compose version` 确认实际入口。
 
 应用没有专用 `/health` 路由，根页面成功返回是当前最小存活检查。随后在受 Cloudflare Access 保护的生产页面验证书架、正文、搜索和一次 AI 流式回答。
 
